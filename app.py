@@ -13,6 +13,7 @@ from RJK.audit.audit_service import AuditService
 from RJK.config.loader import Config
 from RJK.discovery.report_discovery import build_report_tree, discover_reports
 from RJK.parser.sql_metadata_parser import parse_sql_metadata
+from RJK.services.aggregation_service import AggregationService
 from RJK.services.export_service import ExportService
 from RJK.services.report_service import ReportService
 from RJK.ui.layout import get_index_html
@@ -27,6 +28,7 @@ for warning in config.validate():
 audit = AuditService(config.audit_db_path)
 report_service = ReportService(config, audit)
 export_service = ExportService()
+agg_service = AggregationService(report_service)
 
 app = FastAPI(title="RJK Report Framework", version="1.0.0")
 
@@ -69,6 +71,30 @@ async def run_report(request: Request):
         raise HTTPException(status_code=404, detail=str(exc))
     except Exception as exc:
         logger.exception("Report run failed: %s", path)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/reports/aggregate")
+async def aggregate_report(request: Request):
+    body = await request.json()
+    path = body.get("path")
+    params = body.get("params", {})
+    group_by = body.get("group_by", [])
+    value_col = body.get("value_col")
+    agg_func = body.get("agg_func", "sum")
+    if not path:
+        raise HTTPException(status_code=400, detail="path is required")
+    if not value_col:
+        raise HTTPException(status_code=400, detail="value_col is required")
+    try:
+        result = agg_service.preview(path, params, group_by, value_col, agg_func)
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Aggregation failed: %s", path)
         raise HTTPException(status_code=500, detail=str(exc))
 
 
