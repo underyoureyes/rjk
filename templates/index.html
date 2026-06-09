@@ -294,6 +294,7 @@ let lastRunResult   = null;   // { run_id, rows, row_count }
 let reportGridApi   = null;
 let auditRunsApi    = null;
 let auditSignoffsApi = null;
+const reportCache   = {};     // path -> { run_id, rows, row_count }
 
 // ============================================================
 // Logging
@@ -407,7 +408,6 @@ function renderTree(node, container, depth) {
 // ============================================================
 async function selectReport(report) {
   currentReport = report;
-  lastRunResult = null;
 
   // Highlight in sidebar
   document.querySelectorAll('.tree-report').forEach(el => el.classList.remove('active'));
@@ -425,15 +425,25 @@ async function selectReport(report) {
     `<span class="badge rounded-pill" style="background:var(--rjk-light);color:var(--rjk-blue);border:1px solid #c5d5f5;">${t}</span>`
   ).join('');
 
-  document.getElementById('signoff-banner').style.display = 'none';
-  document.getElementById('row-count-badge').style.display = 'none';
-  document.getElementById('btn-csv').disabled = true;
-  document.getElementById('btn-excel').disabled = true;
-
-  // Clear grid
-  if (reportGridApi) {
-    reportGridApi.setGridOption('columnDefs', []);
-    reportGridApi.setGridOption('rowData', []);
+  // Restore cached result or clear grid
+  const cached = reportCache[report.path];
+  if (cached) {
+    lastRunResult = cached;
+    renderResultsGrid(cached.rows);
+    document.getElementById('signoff-run-id').textContent = cached.run_id;
+    document.getElementById('signoff-banner').style.display = 'flex';
+    document.getElementById('btn-csv').disabled = false;
+    document.getElementById('btn-excel').disabled = false;
+  } else {
+    lastRunResult = null;
+    if (reportGridApi) {
+      reportGridApi.setGridOption('columnDefs', []);
+      reportGridApi.setGridOption('rowData', []);
+    }
+    document.getElementById('signoff-banner').style.display = 'none';
+    document.getElementById('row-count-badge').style.display = 'none';
+    document.getElementById('btn-csv').disabled = true;
+    document.getElementById('btn-excel').disabled = true;
   }
 
   // Load metadata for params
@@ -526,6 +536,7 @@ async function runReport() {
       throw new Error(err.detail || res.statusText);
     }
     lastRunResult = await res.json();
+    reportCache[currentReport.path] = lastRunResult;
 
     log.success(`Run #${lastRunResult.run_id} complete — ${lastRunResult.row_count.toLocaleString()} rows`);
     renderResultsGrid(lastRunResult.rows);
