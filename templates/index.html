@@ -284,14 +284,19 @@
             <span class="section-title mb-0">Results</span>
             <span id="row-count-badge" class="row-count-badge" style="display:none;"></span>
             <div class="ms-auto d-flex gap-2 align-items-center">
-              <button class="btn btn-sm btn-outline-secondary" onclick="exportCsv()" id="btn-csv" disabled>
+              <div class="input-group input-group-sm" style="width:210px;">
+                <span class="input-group-text px-2"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="grid-search" placeholder="Search…"
+                       oninput="applyGridSearch(this.value)" disabled>
+              </div>
+              <button class="btn btn-sm btn-warning" onclick="exportCsv()" id="btn-csv" disabled>
                 <i class="bi bi-filetype-csv me-1"></i>CSV
               </button>
-              <button class="btn btn-sm btn-outline-secondary" onclick="exportExcel()" id="btn-excel" disabled>
+              <button class="btn btn-sm btn-success" onclick="exportExcel()" id="btn-excel" disabled>
                 <i class="bi bi-file-earmark-excel me-1"></i>Excel
               </button>
               <div class="dropdown">
-                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="btn-cols"
+                <button class="btn btn-sm btn-info dropdown-toggle" type="button" id="btn-cols"
                         data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" disabled>
                   <i class="bi bi-layout-three-columns me-1"></i>Columns
                 </button>
@@ -317,7 +322,7 @@
                 </div>
               </div>
               <div class="dropdown">
-                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="theme-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Look &amp; Feel">
+                <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" id="theme-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Look &amp; Feel">
                   <i class="bi bi-palette me-1"></i><span id="theme-label">Light</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end" style="min-width:170px;">
@@ -367,18 +372,73 @@
     ============================================================ -->
     <div id="tab-audit" style="display:none;">
       <div class="row g-3">
+
+        <!-- Runs grid -->
         <div class="col-12">
-          <div class="section-title">Report Runs</div>
-          <div class="grid-outer" style="border-radius:6px;">
+          <div class="grid-toolbar" style="border-radius:6px 6px 0 0;">
+            <span class="section-title mb-0">Report Runs</span>
+            <span id="audit-runs-badge" class="row-count-badge ms-2" style="display:none;"></span>
+            <div class="ms-auto d-flex gap-2 align-items-center">
+              <div class="input-group input-group-sm" style="width:200px;">
+                <span class="input-group-text px-2"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="audit-runs-search" placeholder="Search…"
+                       oninput="auditSearch('auditRunsApi','audit-runs-badge',this.value)">
+              </div>
+              <button class="btn btn-sm btn-warning" onclick="auditExportCsv('auditRunsApi','report_runs')">
+                <i class="bi bi-filetype-csv me-1"></i>CSV
+              </button>
+              <button class="btn btn-sm btn-success" onclick="auditExportExcel('auditRunsApi','report_runs')">
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+              </button>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-info dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                  <i class="bi bi-layout-three-columns me-1"></i>Columns
+                </button>
+                <div class="dropdown-menu p-2 dropdown-menu-end" style="min-width:220px;">
+                  <div id="audit-runs-col-list" style="max-height:260px;overflow-y:auto;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="grid-outer" style="border-radius:0 0 6px 6px; border-top:none;">
             <div id="audit-runs-grid" class="ag-theme-alpine audit-grid-wrap"></div>
           </div>
         </div>
+
+        <!-- Sign-offs grid -->
         <div class="col-12 mt-3">
-          <div class="section-title">Sign-offs</div>
-          <div class="grid-outer" style="border-radius:6px;">
+          <div class="grid-toolbar" style="border-radius:6px 6px 0 0;">
+            <span class="section-title mb-0">Sign-offs</span>
+            <span id="audit-signoffs-badge" class="row-count-badge ms-2" style="display:none;"></span>
+            <div class="ms-auto d-flex gap-2 align-items-center">
+              <div class="input-group input-group-sm" style="width:200px;">
+                <span class="input-group-text px-2"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="audit-signoffs-search" placeholder="Search…"
+                       oninput="auditSearch('auditSignoffsApi','audit-signoffs-badge',this.value)">
+              </div>
+              <button class="btn btn-sm btn-warning" onclick="auditExportCsv('auditSignoffsApi','sign_offs')">
+                <i class="bi bi-filetype-csv me-1"></i>CSV
+              </button>
+              <button class="btn btn-sm btn-success" onclick="auditExportExcel('auditSignoffsApi','sign_offs')">
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+              </button>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-info dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                  <i class="bi bi-layout-three-columns me-1"></i>Columns
+                </button>
+                <div class="dropdown-menu p-2 dropdown-menu-end" style="min-width:220px;">
+                  <div id="audit-signoffs-col-list" style="max-height:260px;overflow-y:auto;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="grid-outer" style="border-radius:0 0 6px 6px; border-top:none;">
             <div id="audit-signoffs-grid" class="ag-theme-alpine audit-grid-wrap"></div>
           </div>
         </div>
+
       </div>
     </div>
 
@@ -416,6 +476,11 @@
           <input type="text" class="form-control" id="signoff-report-input" readonly />
         </div>
         <div class="mb-3">
+          <label class="form-label fw-semibold">Parameters</label>
+          <input type="text" class="form-control font-monospace" id="signoff-params-input" readonly
+                 style="font-size:.8rem; color:var(--text-muted);" />
+        </div>
+        <div class="mb-3">
           <label class="form-label fw-semibold">Signed Off By <span class="text-danger">*</span></label>
           <input type="text" class="form-control" id="signoff-by-input" placeholder="Your name" />
         </div>
@@ -436,6 +501,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 // ============================================================
 // State
@@ -620,6 +686,9 @@ async function selectReport(report) {
     document.getElementById('btn-excel').disabled = true;
     document.getElementById('btn-cols').disabled = true;
     document.getElementById('col-chooser-list').innerHTML = '';
+    const srch = document.getElementById('grid-search');
+    srch.value = '';
+    srch.disabled = true;
   }
 
   // Load metadata for params
@@ -652,14 +721,10 @@ function renderParamToolbar(meta) {
 
   let html = '';
   for (const [key, cfg] of Object.entries(params)) {
+    if (cfg.type === 'select') continue;  // select params are not toolbar inputs; defaults are passed silently
     const label = cfg.label || key;
     const id = `param-${key}`;
-    if (cfg.type === 'select') {
-      const opts = (cfg.options || []).map(o =>
-        `<option value="${o}" ${o === cfg.default ? 'selected' : ''}>${o}</option>`
-      ).join('');
-      html += `<div class="param-group"><label for="${id}">${label}</label><select id="${id}" data-param="${key}">${opts}</select></div>`;
-    } else if (cfg.type === 'date') {
+    if (cfg.type === 'date') {
       const today = new Date().toISOString().slice(0, 10);
       const def = cfg.default === 'today' ? today : (cfg.default || today);
       html += `<div class="param-group"><label for="${id}">${label}</label><input type="date" id="${id}" data-param="${key}" value="${def}" /></div>`;
@@ -713,6 +778,7 @@ async function runReport() {
       throw new Error(err.detail || res.statusText);
     }
     lastRunResult = await res.json();
+    lastRunResult._params = params;
     reportCache[currentReport.path] = lastRunResult;
 
     log.success(`Run #${lastRunResult.run_id} complete — ${lastRunResult.row_count.toLocaleString()} rows`);
@@ -724,6 +790,8 @@ async function runReport() {
 
     document.getElementById('btn-csv').disabled = false;
     document.getElementById('btn-excel').disabled = false;
+
+    loadAudit();
   } catch (e) {
     log.error('Run failed: ' + e.message);
     alert('Run failed: ' + e.message);
@@ -764,16 +832,22 @@ function renderResultsGrid(rows) {
     paginationPageSize: 100,
     suppressMovableColumns: false,
     animateRows: true,
+    onFilterChanged: () => updateRowCountBadge(),
   };
 
   if (reportGridApi) {
     reportGridApi.setGridOption('columnDefs', colDefs);
     reportGridApi.setGridOption('rowData', rows);
+    reportGridApi.setGridOption('quickFilterText', '');
   } else {
     reportGridApi = agGrid.createGrid(container, gridOptions);
   }
 
   populateColChooser(Object.keys(rows[0]));
+
+  const search = document.getElementById('grid-search');
+  search.value = '';
+  search.disabled = false;
 
   const badge = document.getElementById('row-count-badge');
   badge.textContent = rows.length.toLocaleString() + ' rows';
@@ -781,45 +855,144 @@ function renderResultsGrid(rows) {
 }
 
 // ============================================================
-// Exports
+// Grid search
 // ============================================================
-async function exportCsv() {
-  if (!currentReport || !lastRunResult) return;
-  const params = collectParams();
-  log.info('Exporting CSV…');
-  try {
-    const res = await fetch('/api/reports/export/csv', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: currentReport.path, params })
-    });
-    if (!res.ok) throw new Error(res.statusText);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = currentReport.path.split('/').pop().replace('.sql', '.csv');
-    a.click(); URL.revokeObjectURL(url);
-    log.success('CSV downloaded');
-  } catch (e) { log.error('CSV export failed: ' + e.message); }
+function applyGridSearch(value) {
+  if (!reportGridApi) return;
+  reportGridApi.setGridOption('quickFilterText', value);
+  updateRowCountBadge();
 }
 
-async function exportExcel() {
-  if (!currentReport || !lastRunResult) return;
-  const params = collectParams();
-  log.info('Exporting Excel…');
+function updateRowCountBadge() {
+  if (!reportGridApi || !lastRunResult) return;
+  const displayed = reportGridApi.getDisplayedRowCount();
+  const total = lastRunResult.row_count;
+  const badge = document.getElementById('row-count-badge');
+  badge.textContent = displayed < total
+    ? `${displayed.toLocaleString()} / ${total.toLocaleString()} rows`
+    : `${total.toLocaleString()} rows`;
+}
+
+// ============================================================
+// Shared grid utilities
+// ============================================================
+function _collectGridRows(api) {
+  const cols = api.getAllDisplayedColumns().map(c => c.getColId());
+  const rows = [];
+  api.forEachNodeAfterFilterAndSort(node => {
+    if (!node.data) return;
+    const obj = {};
+    cols.forEach(c => { obj[c] = node.data[c]; });
+    rows.push(obj);
+  });
+  return rows;
+}
+
+function _buildCsv(rows) {
+  const headers = Object.keys(rows[0]);
+  const escape = v => {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [headers.join(','), ...rows.map(r => headers.map(h => escape(r[h])).join(','))].join('\n');
+}
+
+function _triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// Exports — always use the current filtered + visible-column rows
+// ============================================================
+function _getExportRows() {
+  return reportGridApi ? _collectGridRows(reportGridApi) : [];
+}
+
+// ============================================================
+// Audit grid search / export / column chooser
+// ============================================================
+function auditSearch(apiKey, badgeId, value) {
+  const api = window[apiKey];
+  if (!api) return;
+  api.setGridOption('quickFilterText', value);
+  const badge = document.getElementById(badgeId);
+  if (!badge) return;
+  const displayed = api.getDisplayedRowCount();
+  badge.style.display = '';
+  badge.textContent = displayed.toLocaleString() + ' rows';
+}
+
+function auditExportCsv(apiKey, filename) {
+  const api = window[apiKey];
+  if (!api) return;
+  const rows = _collectGridRows(api);
+  if (!rows.length) { log.warn('No rows to export'); return; }
+  _triggerDownload(new Blob([_buildCsv(rows)], { type: 'text/csv;charset=utf-8;' }), filename + '.csv');
+  log.success(`CSV downloaded (${rows.length.toLocaleString()} rows)`);
+}
+
+function auditExportExcel(apiKey, filename) {
+  const api = window[apiKey];
+  if (!api) return;
+  const rows = _collectGridRows(api);
+  if (!rows.length) { log.warn('No rows to export'); return; }
   try {
-    const res = await fetch('/api/reports/export/excel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: currentReport.path, params })
-    });
-    if (!res.ok) throw new Error(res.statusText);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = currentReport.path.split('/').pop().replace('.sql', '.xlsx');
-    a.click(); URL.revokeObjectURL(url);
-    log.success('Excel downloaded');
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, filename.slice(0, 31));
+    XLSX.writeFile(wb, filename + '.xlsx');
+    log.success(`Excel downloaded (${rows.length.toLocaleString()} rows)`);
+  } catch (e) { log.error('Excel export failed: ' + e.message); }
+}
+
+function _populateAuditColChooser(api, listId) {
+  if (!api) return;
+  const cols = api.getColumnDefs() || [];
+  const list = document.getElementById(listId);
+  if (!list || !cols.length) return;
+  list.innerHTML = cols.map(c => {
+    const key = c.field;
+    const label = c.headerName || key;
+    return `<div class="form-check mb-1">
+      <input class="form-check-input" type="checkbox" id="ac-${listId}-${key}" checked
+             onchange="auditToggleCol('${api === window.auditRunsApi ? 'auditRunsApi' : 'auditSignoffsApi'}','${key}',this.checked)">
+      <label class="form-check-label" for="ac-${listId}-${key}" style="font-size:.82rem;">${label}</label>
+    </div>`;
+  }).join('');
+}
+
+function auditToggleCol(apiKey, colKey, visible) {
+  const api = window[apiKey];
+  if (api) api.applyColumnState({ state: [{ colId: colKey, hide: !visible }] });
+}
+
+function exportCsv() {
+  if (!currentReport || !lastRunResult) return;
+  const rows = _getExportRows();
+  if (!rows.length) { log.warn('No rows to export'); return; }
+  _triggerDownload(
+    new Blob([_buildCsv(rows)], { type: 'text/csv;charset=utf-8;' }),
+    currentReport.path.split('/').pop().replace('.sql', '.csv')
+  );
+  log.success(`CSV downloaded (${rows.length.toLocaleString()} rows)`);
+}
+
+function exportExcel() {
+  if (!currentReport || !lastRunResult) return;
+  const rows = _getExportRows();
+  if (!rows.length) { log.warn('No rows to export'); return; }
+  const sheetName = currentReport.path.split('/').pop().replace('.sql', '').slice(0, 31);
+  log.info(`Exporting Excel (${rows.length.toLocaleString()} rows)…`);
+  try {
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    XLSX.writeFile(wb, sheetName + '.xlsx');
+    log.success(`Excel downloaded (${rows.length.toLocaleString()} rows)`);
   } catch (e) { log.error('Excel export failed: ' + e.message); }
 }
 
@@ -832,6 +1005,9 @@ function showSignoffModal() {
   if (!lastRunResult) return;
   document.getElementById('signoff-run-id-input').value = lastRunResult.run_id;
   document.getElementById('signoff-report-input').value = currentReport.path;
+  document.getElementById('signoff-params-input').value = lastRunResult._params
+    ? Object.entries(lastRunResult._params).map(([k, v]) => `${k}=${v}`).join('  |  ')
+    : '—';
   document.getElementById('signoff-by-input').value = '';
   document.getElementById('signoff-notes-input').value = '';
   if (!_signoffModal) _signoffModal = new bootstrap.Modal(document.getElementById('signoffModal'));
@@ -846,7 +1022,8 @@ async function submitSignoff() {
     run_id: lastRunResult.run_id,
     report_path: currentReport.path,
     signed_off_by: by,
-    notes: document.getElementById('signoff-notes-input').value.trim()
+    notes: document.getElementById('signoff-notes-input').value.trim(),
+    params: lastRunResult._params || null
   };
 
   log.info(`Submitting sign-off for run #${payload.run_id} by ${by}`);
@@ -861,6 +1038,7 @@ async function submitSignoff() {
     _signoffModal.hide();
     log.success(`Sign-off #${data.signoff_id} recorded for run #${payload.run_id}`);
     document.getElementById('signoff-banner').style.display = 'none';
+    loadAudit();
   } catch (e) {
     log.error('Sign-off failed: ' + e.message);
     alert('Sign-off failed: ' + e.message);
@@ -894,6 +1072,7 @@ async function loadAudit() {
       { field: 'report_path', headerName: 'Report', flex: 2 },
       { field: 'signed_off_by', headerName: 'Signed Off By', width: 150 },
       { field: 'signed_off_at', headerName: 'Signed Off At', width: 190 },
+      { field: 'params', headerName: 'Params', flex: 1 },
       { field: 'notes', headerName: 'Notes', flex: 1 },
     ], 'auditSignoffsApi');
 
@@ -913,10 +1092,18 @@ function renderAuditGrid(containerId, rows, colDefs, apiKey) {
     paginationPageSize: 50,
   };
   if (window[apiKey]) {
+    window[apiKey].setGridOption('columnDefs', colDefs);
     window[apiKey].setGridOption('rowData', rows);
   } else {
     window[apiKey] = agGrid.createGrid(container, opts);
   }
+
+  // Update badge and column chooser
+  const badgeId = apiKey === 'auditRunsApi' ? 'audit-runs-badge' : 'audit-signoffs-badge';
+  const listId  = apiKey === 'auditRunsApi' ? 'audit-runs-col-list' : 'audit-signoffs-col-list';
+  const badge = document.getElementById(badgeId);
+  if (badge) { badge.textContent = rows.length.toLocaleString() + ' rows'; badge.style.display = ''; }
+  _populateAuditColChooser(window[apiKey], listId);
 }
 
 // ============================================================
@@ -1034,6 +1221,7 @@ function initEmptyReportGrid() {
     pagination: true,
     paginationPageSize: 100,
     overlayNoRowsTemplate: '<span class="text-muted">Run a report to see results</span>',
+    onFilterChanged: () => updateRowCountBadge(),
   });
 }
 

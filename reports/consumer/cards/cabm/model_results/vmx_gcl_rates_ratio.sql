@@ -8,11 +8,6 @@ params:
     type: date
     label: "As Of Date"
     default: "today"
-  segment:
-    type: select
-    label: "Segment"
-    options: [ALL, PRIME, NEAR_PRIME, SUB_PRIME]
-    default: ALL
 mock:
   dimensions:
     RATIO_TYPE:
@@ -111,7 +106,6 @@ FROM
                                     AND a.PRODUCT_TYPE   = r.PRODUCT_TYPE
 WHERE
     r.AS_OF_DATE <= :run_date
-    AND (r.SEGMENT = :segment OR :segment = 'ALL')
 GROUP BY
     r.RATIO_TYPE, r.SEGMENT, r.PRODUCT_TYPE,
     br.REGION, TRUNC(r.AS_OF_DATE, 'MM'),

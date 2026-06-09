@@ -23,9 +23,15 @@ CREATE TABLE IF NOT EXISTS audit_signoffs (
     report_path    TEXT    NOT NULL,
     signed_off_by  TEXT,
     signed_off_at  TEXT    NOT NULL,
-    notes          TEXT
+    notes          TEXT,
+    params         TEXT
 );
 """
+
+# Safe migrations — each is a no-op if the column already exists
+_MIGRATIONS = [
+    "ALTER TABLE audit_signoffs ADD COLUMN params TEXT",
+]
 
 
 class AuditService:
@@ -50,6 +56,12 @@ class AuditService:
     def _init_schema(self) -> None:
         with self._connect() as conn:
             conn.executescript(_DDL)
+        for sql in _MIGRATIONS:
+            try:
+                with self._connect() as conn:
+                    conn.execute(sql)
+            except Exception:
+                pass  # column already exists
 
     def log_run(
         self,
@@ -78,19 +90,25 @@ class AuditService:
             return cur.lastrowid
 
     def log_signoff(
-        self, run_id: int, report_path: str, signed_off_by: str, notes: str | None = None
+        self,
+        run_id: int,
+        report_path: str,
+        signed_off_by: str,
+        notes: str | None = None,
+        params: dict | None = None,
     ) -> int:
         with self._connect() as conn:
             cur = conn.execute(
                 """INSERT INTO audit_signoffs
-                   (run_id, report_path, signed_off_by, signed_off_at, notes)
-                   VALUES (?, ?, ?, ?, ?)""",
+                   (run_id, report_path, signed_off_by, signed_off_at, notes, params)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
                 (
                     run_id,
                     report_path,
                     signed_off_by,
                     datetime.now(timezone.utc).isoformat(),
                     notes,
+                    json.dumps(params) if params else None,
                 ),
             )
             return cur.lastrowid
@@ -105,6 +123,7 @@ class AuditService:
     def get_signoffs(self, limit: int = 200) -> list[dict]:
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT * FROM audit_signoffs ORDER BY signed_off_at DESC LIMIT ?", (limit,)
+                "SELECT * FROM audit_signoffs ORDER BY signed_off_at DESC LIMIT ?",
+                (limit,),
             ).fetchall()
             return [dict(r) for r in rows]

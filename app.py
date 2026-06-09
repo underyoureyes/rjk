@@ -127,7 +127,8 @@ async def signoff(request: Request):
     report_path = body.get("report_path")
     signed_off_by = body.get("signed_off_by", "anonymous")
     notes = body.get("notes", "")
+    params = body.get("params")
     if not run_id or not report_path:
         raise HTTPException(status_code=400, detail="run_id and report_path are required")
-    signoff_id = audit.log_signoff(int(run_id), report_path, signed_off_by, notes)
+    signoff_id = audit.log_signoff(int(run_id), report_path, signed_off_by, notes, params)
     return {"signoff_id": signoff_id, "status": "ok"}

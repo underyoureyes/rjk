@@ -8,11 +8,6 @@ params:
     type: date
     label: "Run Date"
     default: "today"
-  segment:
-    type: select
-    label: "Segment"
-    options: [ALL, PRIME, NEAR_PRIME, SUB_PRIME]
-    default: ALL
 mock:
   dimensions:
     MODEL_VERSION:
@@ -98,7 +93,6 @@ FROM
                                  AND ac.PRODUCT_TYPE = m.PRODUCT_TYPE
 WHERE
     m.RUN_DATE  = :run_date
-    AND (m.SEGMENT = :segment OR :segment = 'ALL')
 GROUP BY
     m.MODEL_VERSION, m.SEGMENT, m.SCORE_BAND,
     m.PRODUCT_TYPE, m.CHANNEL, m.RUN_DATE,
