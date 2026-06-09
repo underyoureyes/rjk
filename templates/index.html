@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light" data-theme="light">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -11,22 +11,92 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-theme-alpine.min.css" />
 
 <style>
-  :root { --rjk-blue: #003087; --rjk-light: #f0f4ff; }
-  body { background: #f5f6fa; font-size: .9rem; }
+  /* ── Theme tokens ──────────────────────────────────────────── */
+  :root, [data-theme="light"] {
+    --rjk-blue:    #003087;
+    --rjk-blue-hv: #002070;
+    --rjk-light:   #f0f4ff;
+    --bg-page:     #f5f6fa;
+    --bg-panel:    #ffffff;
+    --bg-hover:    #f0f4ff;
+    --bg-active:   #e8f0fe;
+    --border:      #dee2e6;
+    --input-border:#ced4da;
+    --text-primary:#343a40;
+    --text-muted:  #6c757d;
+    --text-label:  #495057;
+    --navbar-bg:   #003087;
+    --badge-border:#c5d5f5;
+  }
+  [data-theme="darcula"] {
+    --rjk-blue:    #4a9edd;
+    --rjk-blue-hv: #3a8ecd;
+    --rjk-light:   #2d4a6e;
+    --bg-page:     #2b2b2b;
+    --bg-panel:    #3c3f41;
+    --bg-hover:    #4b4f52;
+    --bg-active:   #365880;
+    --border:      #4d5154;
+    --input-border:#5e6060;
+    --text-primary:#a9b7c6;
+    --text-muted:  #888888;
+    --text-label:  #a9b7c6;
+    --navbar-bg:   #3c3f41;
+    --badge-border:#4a9edd;
+  }
+  [data-theme="dark"] {
+    --rjk-blue:    #7c9fff;
+    --rjk-blue-hv: #6c8fef;
+    --rjk-light:   #1e2a4a;
+    --bg-page:     #1e1e2e;
+    --bg-panel:    #27273a;
+    --bg-hover:    #313244;
+    --bg-active:   #45475a;
+    --border:      #3e3e5a;
+    --input-border:#45475a;
+    --text-primary:#cdd6f4;
+    --text-muted:  #6c7086;
+    --text-label:  #bac2de;
+    --navbar-bg:   #181825;
+    --badge-border:#7c9fff;
+  }
+  [data-theme="high-contrast"] {
+    --rjk-blue:    #ffffff;
+    --rjk-blue-hv: #cccccc;
+    --rjk-light:   #1a1a1a;
+    --bg-page:     #000000;
+    --bg-panel:    #000000;
+    --bg-hover:    #1a1a1a;
+    --bg-active:   #003087;
+    --border:      #ffffff;
+    --input-border:#ffffff;
+    --text-primary:#ffffff;
+    --text-muted:  #cccccc;
+    --text-label:  #ffffff;
+    --navbar-bg:   #000000;
+    --badge-border:#ffffff;
+  }
+
+  /* ── Base ──────────────────────────────────────────────────── */
+  body { background: var(--bg-page); font-size: .9rem; color: var(--text-primary); }
 
   /* Navbar */
-  .navbar { background: var(--rjk-blue) !important; }
+  .navbar { background: var(--navbar-bg) !important; }
   .navbar-brand { font-weight: 700; letter-spacing: .05em; }
   .navbar-subtitle { font-size: .78rem; opacity: .65; }
 
   /* Tabs */
-  .nav-tabs .nav-link { color: #555; font-weight: 500; }
-  .nav-tabs .nav-link.active { color: var(--rjk-blue); border-bottom: 3px solid var(--rjk-blue); font-weight: 700; }
+  .nav-tabs { border-color: var(--border); }
+  .nav-tabs .nav-link { color: var(--text-muted); font-weight: 500; }
+  .nav-tabs .nav-link.active {
+    color: var(--rjk-blue); border-bottom: 3px solid var(--rjk-blue); font-weight: 700;
+    background: var(--bg-panel); border-color: var(--border) var(--border) var(--bg-panel);
+  }
 
   /* Sidebar */
   #sidebar {
     width: 280px; min-width: 280px;
-    background: #fff; border-right: 1px solid #dee2e6;
+    background: var(--bg-panel); border-right: 1px solid var(--border);
     overflow-y: auto; height: calc(100vh - 108px);
     padding: 12px 0;
     transition: width .2s, min-width .2s;
@@ -34,39 +104,40 @@
   #sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; padding: 0; }
   .sidebar-header {
     font-size: .72rem; font-weight: 700; letter-spacing: .1em;
-    color: #6c757d; text-transform: uppercase;
+    color: var(--text-muted); text-transform: uppercase;
     padding: 4px 16px 8px;
   }
   .tree-folder {
     display: flex; align-items: center; gap: 6px;
     padding: 5px 12px; cursor: pointer;
-    font-size: .82rem; font-weight: 600; color: #343a40;
+    font-size: .82rem; font-weight: 600; color: var(--text-primary);
     user-select: none;
   }
-  .tree-folder:hover { background: #f0f4ff; }
+  .tree-folder:hover { background: var(--bg-hover); }
   .tree-folder .bi-chevron-right { transition: transform .18s; font-size: .7rem; }
   .tree-folder.open .bi-chevron-right { transform: rotate(90deg); }
   .tree-report {
     display: flex; align-items: center; gap: 7px;
     padding: 5px 12px 5px 28px;
-    font-size: .82rem; color: #495057; cursor: pointer;
+    font-size: .82rem; color: var(--text-label); cursor: pointer;
     border-left: 3px solid transparent;
   }
-  .tree-report:hover { background: #f0f4ff; }
-  .tree-report.active { background: #e8f0fe; border-left-color: var(--rjk-blue); color: var(--rjk-blue); font-weight: 600; }
+  .tree-report:hover { background: var(--bg-hover); }
+  .tree-report.active { background: var(--bg-active); border-left-color: var(--rjk-blue); color: var(--rjk-blue); font-weight: 600; }
   .tree-children { display: none; }
   .tree-children.open { display: block; }
   .tree-indent { padding-left: 12px; }
 
   /* Param toolbar */
   #param-toolbar {
-    background: #fff; border: 1px solid #dee2e6; border-radius: 6px;
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px;
     padding: 10px 14px; display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
   }
   .param-group { display: flex; flex-direction: column; gap: 3px; }
-  .param-group label { font-size: .75rem; font-weight: 600; color: #495057; margin: 0; }
+  .param-group label { font-size: .75rem; font-weight: 600; color: var(--text-label); margin: 0; }
   .param-group input, .param-group select {
-    font-size: .82rem; border: 1px solid #ced4da; border-radius: 4px; padding: 4px 8px;
+    font-size: .82rem; border: 1px solid var(--input-border); border-radius: 4px; padding: 4px 8px;
+    background: var(--bg-panel); color: var(--text-primary);
   }
   .param-group input:focus, .param-group select:focus {
     outline: 2px solid var(--rjk-blue); border-color: var(--rjk-blue);
@@ -75,15 +146,15 @@
   /* Grid */
   .grid-wrap { height: 500px; width: 100%; }
   .grid-toolbar {
-    background: #fff; border: 1px solid #dee2e6; border-radius: 6px 6px 0 0;
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px 6px 0 0;
     padding: 8px 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
-  .grid-outer { border: 1px solid #dee2e6; border-top: none; border-radius: 0 0 6px 6px; overflow: hidden; }
+  .grid-outer { border: 1px solid var(--border); border-top: none; border-radius: 0 0 6px 6px; overflow: hidden; }
 
   /* Status badge */
   .row-count-badge {
     font-size: .75rem; padding: 3px 10px; border-radius: 20px; font-weight: 600;
-    background: var(--rjk-light); color: var(--rjk-blue); border: 1px solid #c5d5f5;
+    background: var(--rjk-light); color: var(--rjk-blue); border: 1px solid var(--badge-border);
   }
 
   /* Log console */
@@ -103,16 +174,21 @@
   #signoff-banner {
     background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px;
     padding: 8px 14px; display: none; align-items: center; gap: 10px;
+    color: #333;
   }
 
   /* Audit grid */
   .audit-grid-wrap { height: 360px; width: 100%; }
 
   /* Misc */
-  .section-title { font-size: .75rem; font-weight: 700; letter-spacing: .08em; color: #6c757d; text-transform: uppercase; margin-bottom: 8px; }
-  .empty-state { color: #adb5bd; font-size: .85rem; text-align: center; padding: 48px 0; }
+  .section-title { font-size: .75rem; font-weight: 700; letter-spacing: .08em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
+  .empty-state { color: var(--text-muted); font-size: .85rem; text-align: center; padding: 48px 0; }
   .btn-rjk { background: var(--rjk-blue); color: #fff; border: none; }
-  .btn-rjk:hover { background: #002070; color: #fff; }
+  .btn-rjk:hover { background: var(--rjk-blue-hv); color: #fff; }
+
+  /* Theme picker active check */
+  .theme-item .bi-check2 { visibility: hidden; }
+  .theme-item.active .bi-check2 { visibility: visible; }
 </style>
 </head>
 <body>
@@ -212,13 +288,33 @@
           <div class="grid-toolbar" style="border-radius:0; border-top:none;">
             <span class="section-title mb-0">Results</span>
             <span id="row-count-badge" class="row-count-badge" style="display:none;"></span>
-            <div class="ms-auto d-flex gap-2">
+            <div class="ms-auto d-flex gap-2 align-items-center">
               <button class="btn btn-sm btn-outline-secondary" onclick="exportCsv()" id="btn-csv" disabled>
                 <i class="bi bi-filetype-csv me-1"></i>CSV
               </button>
               <button class="btn btn-sm btn-outline-secondary" onclick="exportExcel()" id="btn-excel" disabled>
                 <i class="bi bi-file-earmark-excel me-1"></i>Excel
               </button>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="theme-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Look &amp; Feel">
+                  <i class="bi bi-palette me-1"></i><span id="theme-label">Light</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" style="min-width:170px;">
+                  <li><h6 class="dropdown-header">Look &amp; Feel</h6></li>
+                  <li><a class="dropdown-item theme-item active" href="#" data-theme-name="light">
+                    <i class="bi bi-sun me-2 text-warning"></i>Light<i class="bi bi-check2 ms-auto float-end"></i>
+                  </a></li>
+                  <li><a class="dropdown-item theme-item" href="#" data-theme-name="darcula">
+                    <i class="bi bi-moon-stars me-2" style="color:#4a9edd;"></i>Darcula<i class="bi bi-check2 ms-auto float-end"></i>
+                  </a></li>
+                  <li><a class="dropdown-item theme-item" href="#" data-theme-name="dark">
+                    <i class="bi bi-moon me-2 text-secondary"></i>Dark<i class="bi bi-check2 ms-auto float-end"></i>
+                  </a></li>
+                  <li><a class="dropdown-item theme-item" href="#" data-theme-name="high-contrast">
+                    <i class="bi bi-circle-half me-2"></i>High Contrast<i class="bi bi-check2 ms-auto float-end"></i>
+                  </a></li>
+                </ul>
+              </div>
             </div>
           </div>
           <div class="grid-outer" style="border-radius:0 0 6px 6px;">
@@ -790,9 +886,42 @@ function renderAuditGrid(containerId, rows, colDefs, apiKey) {
 }
 
 // ============================================================
+// Theme
+// ============================================================
+const THEMES = {
+  light:          { label: 'Light',         agClass: 'ag-theme-alpine',      bsTheme: 'light' },
+  darcula:        { label: 'Darcula',        agClass: 'ag-theme-alpine-dark', bsTheme: 'dark'  },
+  dark:           { label: 'Dark',           agClass: 'ag-theme-alpine-dark', bsTheme: 'dark'  },
+  'high-contrast':{ label: 'High Contrast',  agClass: 'ag-theme-alpine-dark', bsTheme: 'dark'  },
+};
+
+function applyTheme(name) {
+  const theme = THEMES[name] || THEMES.light;
+  const html  = document.documentElement;
+  html.setAttribute('data-theme', name);
+  html.setAttribute('data-bs-theme', theme.bsTheme);
+
+  document.querySelectorAll('.ag-theme-alpine, .ag-theme-alpine-dark').forEach(el => {
+    el.classList.remove('ag-theme-alpine', 'ag-theme-alpine-dark');
+    el.classList.add(theme.agClass);
+  });
+
+  document.querySelectorAll('.theme-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.themeName === name);
+  });
+  document.getElementById('theme-label').textContent = theme.label;
+  localStorage.setItem('rjk-theme', name);
+}
+
+document.querySelectorAll('.theme-item').forEach(el => {
+  el.addEventListener('click', e => { e.preventDefault(); applyTheme(el.dataset.themeName); });
+});
+
+// ============================================================
 // Init
 // ============================================================
 window.addEventListener('DOMContentLoaded', async () => {
+  applyTheme(localStorage.getItem('rjk-theme') || 'light');
   log.info('RJK Report Framework started');
   initEmptyReportGrid();
   initEmptyAuditGrids();
