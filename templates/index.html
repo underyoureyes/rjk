@@ -298,6 +298,32 @@
                 <i class="bi bi-file-earmark-excel me-1"></i>Excel
               </button>
               <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="btn-cols"
+                        data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" disabled>
+                  <i class="bi bi-layout-three-columns me-1"></i>Columns
+                </button>
+                <div class="dropdown-menu p-2 dropdown-menu-end" id="col-chooser-menu" style="min-width:230px;">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <small class="fw-bold" style="color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase;">Columns</small>
+                    <div class="d-flex gap-2">
+                      <a href="#" class="small text-decoration-none" onclick="colChooserAll(true);return false;">All</a>
+                      <span style="color:var(--text-muted);">·</span>
+                      <a href="#" class="small text-decoration-none" onclick="colChooserAll(false);return false;">None</a>
+                    </div>
+                  </div>
+                  <div id="col-chooser-list" style="max-height:260px;overflow-y:auto;"></div>
+                  <hr class="my-2">
+                  <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-rjk flex-grow-1" id="btn-save-cols" onclick="saveColLayout()">
+                      <i class="bi bi-floppy me-1"></i>Save Layout
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="resetColLayout()" title="Reset to all columns">
+                      <i class="bi bi-arrow-counterclockwise"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="dropdown">
                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="theme-btn" data-bs-toggle="dropdown" aria-expanded="false" title="Look &amp; Feel">
                   <i class="bi bi-palette me-1"></i><span id="theme-label">Light</span>
                 </button>
@@ -591,6 +617,8 @@ async function selectReport(report) {
     document.getElementById('row-count-badge').style.display = 'none';
     document.getElementById('btn-csv').disabled = true;
     document.getElementById('btn-excel').disabled = true;
+    document.getElementById('btn-cols').disabled = true;
+    document.getElementById('col-chooser-list').innerHTML = '';
   }
 
   // Load metadata for params
@@ -668,6 +696,7 @@ async function runReport() {
   document.getElementById('row-count-badge').style.display = 'none';
   document.getElementById('btn-csv').disabled = true;
   document.getElementById('btn-excel').disabled = true;
+  document.getElementById('btn-cols').disabled = true;
 
   const runBtn = document.querySelector('#param-toolbar button.btn-rjk');
   if (runBtn) { runBtn.disabled = true; runBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Running…'; }
@@ -742,6 +771,8 @@ function renderResultsGrid(rows) {
   } else {
     reportGridApi = agGrid.createGrid(container, gridOptions);
   }
+
+  populateColChooser(Object.keys(rows[0]));
 
   const badge = document.getElementById('row-count-badge');
   badge.textContent = rows.length.toLocaleString() + ' rows';
@@ -885,6 +916,69 @@ function renderAuditGrid(containerId, rows, colDefs, apiKey) {
   } else {
     window[apiKey] = agGrid.createGrid(container, opts);
   }
+}
+
+// ============================================================
+// Column chooser
+// ============================================================
+let _colKeys = [];
+
+function populateColChooser(colKeys) {
+  _colKeys = colKeys;
+  const saved  = _loadColLayout(currentReport && currentReport.path);
+  const visible = saved ? new Set(saved) : new Set(colKeys);
+
+  const list = document.getElementById('col-chooser-list');
+  list.innerHTML = colKeys.map(key => {
+    const chk = visible.has(key) ? 'checked' : '';
+    return `<div class="form-check mb-1">
+      <input class="form-check-input" type="checkbox" id="cc-${key}" data-col="${key}" ${chk}
+             onchange="toggleCol('${key}',this.checked)">
+      <label class="form-check-label" for="cc-${key}" style="font-size:.82rem;">${key}</label>
+    </div>`;
+  }).join('');
+
+  if (saved && reportGridApi) {
+    const state = colKeys.map(k => ({ colId: k, hide: !visible.has(k) }));
+    reportGridApi.applyColumnState({ state });
+  }
+
+  document.getElementById('btn-cols').disabled = false;
+}
+
+function toggleCol(colKey, visible) {
+  if (reportGridApi) reportGridApi.applyColumnState({ state: [{ colId: colKey, hide: !visible }] });
+}
+
+function colChooserAll(checked) {
+  document.querySelectorAll('#col-chooser-list .form-check-input').forEach(cb => {
+    cb.checked = checked;
+    toggleCol(cb.dataset.col, checked);
+  });
+}
+
+function saveColLayout() {
+  if (!currentReport) return;
+  const visible = [...document.querySelectorAll('#col-chooser-list .form-check-input:checked')]
+    .map(cb => cb.dataset.col);
+  localStorage.setItem('rjk-cols-' + currentReport.path, JSON.stringify(visible));
+  const btn = document.getElementById('btn-save-cols');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Saved!';
+  setTimeout(() => { btn.innerHTML = orig; }, 1200);
+  log.success('Column layout saved for ' + currentReport.path);
+}
+
+function resetColLayout() {
+  if (!currentReport) return;
+  localStorage.removeItem('rjk-cols-' + currentReport.path);
+  colChooserAll(true);
+  log.info('Column layout reset for ' + currentReport.path);
+}
+
+function _loadColLayout(reportPath) {
+  if (!reportPath) return null;
+  try { return JSON.parse(localStorage.getItem('rjk-cols-' + reportPath)); } catch { return null; }
 }
 
 // ============================================================
