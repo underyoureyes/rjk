@@ -74,7 +74,7 @@ class TestRunReport:
     def test_run_returns_rows(self, client):
         res = client.post("/api/reports/run", json={
             "path": "consumer/cards/cabm/model_results/agg_gcl_factors.sql",
-            "params": {"run_date": "2024-01-01", "segment": "ALL"}
+            "params": {"run_date": "09-Jun-2026"}
         })
         assert res.status_code == 200
         data = res.json()
@@ -100,7 +100,7 @@ class TestExportCsv:
         assert res.status_code == 200
         assert "text/csv" in res.headers["content-type"]
         lines = res.text.splitlines()
-        assert len(lines) == 10_801  # header + 10800 rows
+        assert len(lines) == 13_501  # header + 13500 rows
 
     def test_csv_has_header(self, client):
         res = client.post("/api/reports/export/csv", json={

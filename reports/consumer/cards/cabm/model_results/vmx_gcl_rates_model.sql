@@ -43,10 +43,15 @@ mock:
       - MOBILE
       - TELEPHONY
     RUN_DATE:
-      - "2024-01-01"
-      - "2024-04-01"
-      - "2024-07-01"
-      - "2024-10-01"
+      - "01-Jan-2024"
+      - "01-Apr-2024"
+      - "01-Jul-2024"
+      - "01-Oct-2024"
+      - "09-Jun-2026"
+  filters:
+    run_date:
+      column: RUN_DATE
+      op: "="
   numerics:
     GCL_RATE:
       min: 0.001

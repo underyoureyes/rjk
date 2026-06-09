@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-grid.min.css" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-theme-alpine.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
 
 <style>
   /* ── Theme tokens ──────────────────────────────────────────── */
@@ -347,9 +348,9 @@
                   <label>Group By <span style="font-weight:400; color:var(--text-muted);">(multi-select)</span></label>
                   <select id="aggs-group-by" multiple class="form-select form-select-sm" style="min-height:80px; background:var(--bg-panel); color:var(--text-primary); border-color:var(--input-border);"></select>
                 </div>
-                <div class="param-group" style="min-width:160px;">
-                  <label>Value Column</label>
-                  <select id="aggs-value-col" class="form-select form-select-sm" style="background:var(--bg-panel); color:var(--text-primary); border-color:var(--input-border);"></select>
+                <div class="param-group" style="min-width:200px; flex:1;">
+                  <label>Value Column(s) <span style="font-weight:400; color:var(--text-muted);">(multi-select)</span></label>
+                  <select id="aggs-value-col" multiple class="form-select form-select-sm" style="min-height:80px; background:var(--bg-panel); color:var(--text-primary); border-color:var(--input-border);"></select>
                 </div>
                 <div class="param-group" style="min-width:120px;">
                   <label>Function</label>
@@ -531,6 +532,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
 // ============================================================
 // State
@@ -752,9 +754,9 @@ function renderParamToolbar(meta) {
     const label = cfg.label || key;
     const id = `param-${key}`;
     if (cfg.type === 'date') {
-      const today = new Date().toISOString().slice(0, 10);
-      const def = cfg.default === 'today' ? today : (cfg.default || today);
-      html += `<div class="param-group"><label for="${id}">${label}</label><input type="date" id="${id}" data-param="${key}" value="${def}" /></div>`;
+      const todayFmt = flatpickr.formatDate(new Date(), 'd-M-Y');
+      const def = cfg.default === 'today' ? todayFmt : (cfg.default || todayFmt);
+      html += `<div class="param-group"><label for="${id}">${label}</label><input type="text" id="${id}" data-param="${key}" value="${def}" placeholder="DD-Mon-YYYY" /></div>`;
     } else {
       html += `<div class="param-group"><label for="${id}">${label}</label><input type="text" id="${id}" data-param="${key}" value="${cfg.default || ''}" /></div>`;
     }
@@ -767,6 +769,14 @@ function renderParamToolbar(meta) {
   </div>`;
 
   toolbar.innerHTML = html;
+
+  document.querySelectorAll('#param-toolbar input[data-param]').forEach(el => {
+    const key = el.dataset.param;
+    const cfg = (currentReport?.params || {})[key] || {};
+    if (cfg.type === 'date') {
+      flatpickr(el, { dateFormat: 'd-M-Y', allowInput: true });
+    }
+  });
 }
 
 function collectParams() {
@@ -1224,17 +1234,18 @@ async function previewAggregation() {
 
   const groupByEl = document.getElementById('aggs-group-by');
   const group_by = [...groupByEl.selectedOptions].map(o => o.value);
-  const value_col = document.getElementById('aggs-value-col').value;
+  const valueColEl = document.getElementById('aggs-value-col');
+  const value_cols = [...valueColEl.selectedOptions].map(o => o.value);
   const agg_func = document.getElementById('aggs-func').value;
 
   if (!group_by.length) { log.warn('Select at least one group-by column'); return; }
-  if (!value_col) { log.warn('Select a value column'); return; }
+  if (!value_cols.length) { log.warn('Select at least one value column'); return; }
 
   const btn = document.getElementById('btn-aggs-preview');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Running…';
 
-  log.info(`Aggregating ${currentReport.path}: group_by=[${group_by.join(', ')}] ${agg_func}(${value_col})`);
+  log.info(`Aggregating ${currentReport.path}: group_by=[${group_by.join(', ')}] ${agg_func}(${value_cols.join(', ')})`);
   try {
     const res = await fetch('/api/reports/aggregate', {
       method: 'POST',
@@ -1243,7 +1254,7 @@ async function previewAggregation() {
         path: currentReport.path,
         params: lastRunResult._params || {},
         group_by,
-        value_col,
+        value_cols,
         agg_func,
       })
     });

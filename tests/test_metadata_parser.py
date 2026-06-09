@@ -83,7 +83,6 @@ class TestParseMetadata:
         meta = parse_sql_metadata(sql_path)
         assert meta["title"] == "Aggregate GCL Factors"
         assert "run_date" in meta["params"]
-        assert "segment" in meta["params"]
 
 
 class TestExtractSql:

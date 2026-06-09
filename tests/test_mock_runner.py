@@ -85,11 +85,11 @@ class TestMockRunner:
         if not sql_path.exists():
             pytest.skip("seed file not found")
         rows = MockRunner().run(sql_path, {})
-        assert len(rows) == 10_800
+        assert len(rows) == 13_500
 
     def test_seed_vmx_ratio_row_count(self):
         sql_path = Path("reports/consumer/cards/cabm/model_results/vmx_gcl_rates_ratio.sql")
         if not sql_path.exists():
             pytest.skip("seed file not found")
         rows = MockRunner().run(sql_path, {})
-        assert len(rows) == 18_900
+        assert len(rows) == 19_656

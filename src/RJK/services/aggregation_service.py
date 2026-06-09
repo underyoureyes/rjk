@@ -14,7 +14,7 @@ class AggregationService:
         report_path: str,
         params: dict,
         group_by: list[str],
-        value_col: str,
+        value_cols: list[str],
         agg_func: str,
     ) -> dict:
         if agg_func not in SUPPORTED_FUNCS:
@@ -23,6 +23,8 @@ class AggregationService:
             )
         if not group_by:
             raise ValueError("group_by must contain at least one column")
+        if not value_cols:
+            raise ValueError("value_cols must contain at least one column")
 
         result = self.report_service.run_report(report_path, params, run_by="aggs-preview")
         rows = result["rows"]
@@ -31,14 +33,17 @@ class AggregationService:
 
         df = pd.DataFrame(rows)
 
-        missing = [c for c in group_by if c not in df.columns]
-        if missing:
-            raise ValueError(f"Unknown group-by column(s): {missing}")
-        if value_col not in df.columns:
-            raise ValueError(f"Value column '{value_col}' not found")
+        missing_grp = [c for c in group_by if c not in df.columns]
+        if missing_grp:
+            raise ValueError(f"Unknown group-by column(s): {missing_grp}")
+        missing_val = [c for c in value_cols if c not in df.columns]
+        if missing_val:
+            raise ValueError(f"Unknown value column(s): {missing_val}")
 
-        agg_df = df.groupby(group_by, as_index=False)[value_col].agg(agg_func)
-        if pd.api.types.is_float_dtype(agg_df[value_col]):
-            agg_df[value_col] = agg_df[value_col].round(6)
+        agg_df = df.groupby(group_by, as_index=False)[value_cols].agg(agg_func)
+        for col in value_cols:
+            if pd.api.types.is_float_dtype(agg_df[col]):
+                agg_df[col] = agg_df[col].round(6)
+        agg_df = agg_df.rename(columns={col: f"{col}_{agg_func}" for col in value_cols})
 
         return {"rows": agg_df.to_dict(orient="records"), "row_count": len(agg_df)}

@@ -51,6 +51,12 @@ mock:
       - BRANCH
       - MOBILE
       - TELEPHONY
+    RUN_DATE:
+      - "09-Jun-2026"
+  filters:
+    run_date:
+      column: RUN_DATE
+      op: "="
   numerics:
     GCL_RATE:
       min: 0.0001

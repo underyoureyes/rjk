@@ -80,14 +80,14 @@ async def aggregate_report(request: Request):
     path = body.get("path")
     params = body.get("params", {})
     group_by = body.get("group_by", [])
-    value_col = body.get("value_col")
+    value_cols = body.get("value_cols") or ([body.get("value_col")] if body.get("value_col") else [])
     agg_func = body.get("agg_func", "sum")
     if not path:
         raise HTTPException(status_code=400, detail="path is required")
-    if not value_col:
-        raise HTTPException(status_code=400, detail="value_col is required")
+    if not value_cols:
+        raise HTTPException(status_code=400, detail="value_cols is required")
     try:
-        result = agg_service.preview(path, params, group_by, value_col, agg_func)
+        result = agg_service.preview(path, params, group_by, value_cols, agg_func)
         return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

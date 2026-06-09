@@ -21,59 +21,59 @@ def _make_svc(rows=None):
 
 class TestAggregationServicePreview:
     def test_sum_single_group(self):
-        result = _make_svc().preview("r.sql", {}, ["SEGMENT"], "N", "sum")
+        result = _make_svc().preview("r.sql", {}, ["SEGMENT"], ["N"], "sum")
         assert result["row_count"] == 2
-        by_seg = {r["SEGMENT"]: r["N"] for r in result["rows"]}
+        by_seg = {r["SEGMENT"]: r["N_sum"] for r in result["rows"]}
         assert by_seg["PRIME"] == 1800
         assert by_seg["NEAR_PRIME"] == 800
 
     def test_mean_single_group(self):
-        result = _make_svc().preview("r.sql", {}, ["SEGMENT"], "SCORE", "mean")
-        by_seg = {r["SEGMENT"]: r["SCORE"] for r in result["rows"]}
+        result = _make_svc().preview("r.sql", {}, ["SEGMENT"], ["SCORE"], "mean")
+        by_seg = {r["SEGMENT"]: r["SCORE_mean"] for r in result["rows"]}
         assert abs(by_seg["PRIME"] - 0.785) < 1e-4
 
     def test_max_single_group(self):
-        result = _make_svc().preview("r.sql", {}, ["SEGMENT"], "SCORE", "max")
-        by_seg = {r["SEGMENT"]: r["SCORE"] for r in result["rows"]}
+        result = _make_svc().preview("r.sql", {}, ["SEGMENT"], ["SCORE"], "max")
+        by_seg = {r["SEGMENT"]: r["SCORE_max"] for r in result["rows"]}
         assert by_seg["PRIME"] == 0.85
 
     def test_min_single_group(self):
-        result = _make_svc().preview("r.sql", {}, ["SEGMENT"], "N", "min")
-        by_seg = {r["SEGMENT"]: r["N"] for r in result["rows"]}
+        result = _make_svc().preview("r.sql", {}, ["SEGMENT"], ["N"], "min")
+        by_seg = {r["SEGMENT"]: r["N_min"] for r in result["rows"]}
         assert by_seg["NEAR_PRIME"] == 300
 
     def test_multi_group_by(self):
-        result = _make_svc().preview("r.sql", {}, ["SEGMENT", "RISK_BAND"], "N", "sum")
+        result = _make_svc().preview("r.sql", {}, ["SEGMENT", "RISK_BAND"], ["N"], "sum")
         assert result["row_count"] == 4
 
     def test_row_count_matches_rows(self):
-        result = _make_svc().preview("r.sql", {}, ["SEGMENT"], "N", "sum")
+        result = _make_svc().preview("r.sql", {}, ["SEGMENT"], ["N"], "sum")
         assert result["row_count"] == len(result["rows"])
 
     def test_unsupported_func_raises(self):
         with pytest.raises(ValueError, match="Unsupported function"):
-            _make_svc().preview("r.sql", {}, ["SEGMENT"], "N", "count")
+            _make_svc().preview("r.sql", {}, ["SEGMENT"], ["N"], "count")
 
     def test_empty_group_by_raises(self):
         with pytest.raises(ValueError, match="group_by"):
-            _make_svc().preview("r.sql", {}, [], "N", "sum")
+            _make_svc().preview("r.sql", {}, [], ["N"], "sum")
 
     def test_unknown_value_col_raises(self):
-        with pytest.raises(ValueError, match="not found"):
-            _make_svc().preview("r.sql", {}, ["SEGMENT"], "NONEXISTENT", "sum")
+        with pytest.raises(ValueError, match="Unknown value column"):
+            _make_svc().preview("r.sql", {}, ["SEGMENT"], ["NONEXISTENT"], "sum")
 
     def test_unknown_group_by_col_raises(self):
         with pytest.raises(ValueError, match="Unknown group-by"):
-            _make_svc().preview("r.sql", {}, ["NOPE"], "N", "sum")
+            _make_svc().preview("r.sql", {}, ["NOPE"], ["N"], "sum")
 
     def test_empty_rows_returns_empty(self):
-        result = _make_svc(rows=[]).preview("r.sql", {}, ["SEGMENT"], "N", "sum")
+        result = _make_svc(rows=[]).preview("r.sql", {}, ["SEGMENT"], ["N"], "sum")
         assert result["rows"] == []
         assert result["row_count"] == 0
 
     def test_delegates_params_to_report_service(self):
         svc = _make_svc()
-        svc.preview("r.sql", {"run_date": "2024-01-01"}, ["SEGMENT"], "N", "sum")
+        svc.preview("r.sql", {"run_date": "2024-01-01"}, ["SEGMENT"], ["N"], "sum")
         svc.report_service.run_report.assert_called_once_with(
             "r.sql", {"run_date": "2024-01-01"}, run_by="aggs-preview"
         )
