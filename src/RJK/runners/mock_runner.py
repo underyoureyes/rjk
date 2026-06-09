@@ -28,7 +28,12 @@ class MockRunner(BaseRunner):
             for col, cfg in numerics.items():
                 lo = float(cfg.get("min", 0.0))
                 hi = float(cfg.get("max", 1.0))
-                decimals = int(cfg.get("decimals", 4))
+                if "decimals_min" in cfg or "decimals_max" in cfg:
+                    d_lo = int(cfg.get("decimals_min", 1))
+                    d_hi = int(cfg.get("decimals_max", 8))
+                    decimals = random.randint(d_lo, d_hi)
+                else:
+                    decimals = int(cfg.get("decimals", 4))
                 if decimals == 0:
                     row[col] = random.randint(int(lo), int(hi))
                 else:

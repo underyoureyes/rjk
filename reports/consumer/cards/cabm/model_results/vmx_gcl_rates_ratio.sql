@@ -68,6 +68,11 @@ mock:
       - "2024-12-01"
       - "2025-01-01"
   numerics:
+    GCL_RATE:
+      min: 0.0001
+      max: 0.9999
+      decimals_min: 1
+      decimals_max: 8
     RATIO_VALUE:
       min: 0.0
       max: 2.0
@@ -92,6 +97,7 @@ SELECT
     r.PRODUCT_TYPE,
     br.REGION,
     TRUNC(r.AS_OF_DATE, 'MM')                               AS AS_OF_DATE,
+    r.GCL_RATE,
     r.RATIO_VALUE,
     t.THRESHOLD_AMBER,
     t.THRESHOLD_RED,

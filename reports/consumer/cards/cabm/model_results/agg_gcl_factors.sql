@@ -57,6 +57,11 @@ mock:
       - MOBILE
       - TELEPHONY
   numerics:
+    GCL_RATE:
+      min: 0.0001
+      max: 0.9999
+      decimals_min: 1
+      decimals_max: 8
     FACTOR_VALUE:
       min: -2.0
       max: 2.0
@@ -82,6 +87,7 @@ SELECT
     f.PRODUCT_TYPE,
     f.ACCOUNT_AGE_BAND,
     f.CHANNEL,
+    f.GCL_RATE,
     SUM(f.FACTOR_VALUE * w.WEIGHT)          AS FACTOR_VALUE,
     AVG(w.WEIGHT)                           AS WEIGHT,
     COUNT(a.ACCOUNT_ID)                     AS N_ACCOUNTS,

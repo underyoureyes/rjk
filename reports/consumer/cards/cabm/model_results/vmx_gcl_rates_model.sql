@@ -56,7 +56,8 @@ mock:
     GCL_RATE:
       min: 0.001
       max: 0.15
-      decimals: 5
+      decimals_min: 1
+      decimals_max: 8
     PREDICTED_LOSS:
       min: 0.0
       max: 0.20
