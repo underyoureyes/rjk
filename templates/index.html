@@ -61,8 +61,8 @@
     --badge-border:#7c9fff;
   }
   [data-theme="high-contrast"] {
-    --rjk-blue:    #ffffff;
-    --rjk-blue-hv: #cccccc;
+    --rjk-blue:    #ffff00;
+    --rjk-blue-hv: #e6e600;
     --rjk-light:   #1a1a1a;
     --bg-page:     #000000;
     --bg-panel:    #000000;
@@ -185,6 +185,8 @@
   .empty-state { color: var(--text-muted); font-size: .85rem; text-align: center; padding: 48px 0; }
   .btn-rjk { background: var(--rjk-blue); color: #fff; border: none; }
   .btn-rjk:hover { background: var(--rjk-blue-hv); color: #fff; }
+  [data-theme="high-contrast"] .btn-rjk,
+  [data-theme="high-contrast"] .btn-rjk:hover { color: #000; }
 
   /* Theme picker active check */
   .theme-item .bi-check2 { visibility: hidden; }
