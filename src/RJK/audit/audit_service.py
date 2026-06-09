@@ -108,7 +108,7 @@ class AuditService:
                     signed_off_by,
                     datetime.now(timezone.utc).isoformat(),
                     notes,
-                    json.dumps(params) if params else None,
+                    json.dumps(params) if params is not None else None,
                 ),
             )
             return cur.lastrowid
