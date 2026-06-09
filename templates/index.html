@@ -191,22 +191,57 @@
           </button>
         </div>
 
-        <!-- Grid toolbar -->
-        <div class="grid-toolbar">
-          <span class="section-title mb-0">Results</span>
-          <span id="row-count-badge" class="row-count-badge" style="display:none;"></span>
-          <div class="ms-auto d-flex gap-2">
-            <button class="btn btn-sm btn-outline-secondary" onclick="exportCsv()" id="btn-csv" disabled>
-              <i class="bi bi-filetype-csv me-1"></i>CSV
-            </button>
-            <button class="btn btn-sm btn-outline-secondary" onclick="exportExcel()" id="btn-excel" disabled>
-              <i class="bi bi-file-earmark-excel me-1"></i>Excel
-            </button>
+        <!-- Report child tabs -->
+        <ul class="nav nav-tabs mb-0" id="reportTabs">
+          <li class="nav-item">
+            <a class="nav-link active" href="#" data-report-tab="tab-raw-data">
+              <i class="bi bi-table me-1"></i>Raw Data</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-report-tab="tab-olap">
+              <i class="bi bi-layers me-1"></i>OLAP</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-report-tab="tab-reporting">
+              <i class="bi bi-bar-chart-line me-1"></i>Reporting</a>
+          </li>
+        </ul>
+
+        <!-- Raw Data tab -->
+        <div id="tab-raw-data">
+          <div class="grid-toolbar" style="border-radius:0; border-top:none;">
+            <span class="section-title mb-0">Results</span>
+            <span id="row-count-badge" class="row-count-badge" style="display:none;"></span>
+            <div class="ms-auto d-flex gap-2">
+              <button class="btn btn-sm btn-outline-secondary" onclick="exportCsv()" id="btn-csv" disabled>
+                <i class="bi bi-filetype-csv me-1"></i>CSV
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="exportExcel()" id="btn-excel" disabled>
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+              </button>
+            </div>
+          </div>
+          <div class="grid-outer" style="border-radius:0 0 6px 6px;">
+            <div id="report-grid" class="ag-theme-alpine grid-wrap"></div>
           </div>
         </div>
-        <div class="grid-outer">
-          <div id="report-grid" class="ag-theme-alpine grid-wrap"></div>
+
+        <!-- OLAP tab -->
+        <div id="tab-olap" style="display:none;">
+          <div class="empty-state" style="padding-top:60px;">
+            <i class="bi bi-layers fs-1 d-block mb-3 text-muted"></i>
+            OLAP analysis — awaiting further development
+          </div>
         </div>
+
+        <!-- Reporting tab -->
+        <div id="tab-reporting" style="display:none;">
+          <div class="empty-state" style="padding-top:60px;">
+            <i class="bi bi-bar-chart-line fs-1 d-block mb-3 text-muted"></i>
+            Reporting — awaiting further development
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -343,6 +378,19 @@ document.querySelectorAll('[data-tab]').forEach(a => {
   a.addEventListener('click', e => { e.preventDefault(); switchTab(a.dataset.tab); });
 });
 
+function switchReportTab(tabId) {
+  document.querySelectorAll('[data-report-tab]').forEach(a => a.classList.remove('active'));
+  document.querySelector(`[data-report-tab="${tabId}"]`).classList.add('active');
+  ['tab-raw-data', 'tab-olap', 'tab-reporting'].forEach(id => {
+    document.getElementById(id).style.display = (id === tabId) ? '' : 'none';
+  });
+}
+
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-report-tab]');
+  if (a) { e.preventDefault(); switchReportTab(a.dataset.reportTab); }
+});
+
 // ============================================================
 // Report tree
 // ============================================================
@@ -416,6 +464,7 @@ async function selectReport(report) {
 
   document.getElementById('no-report-selected').style.display = 'none';
   document.getElementById('report-panel').style.display = '';
+  switchReportTab('tab-raw-data');
 
   document.getElementById('report-title').textContent = report.title || report.path;
   document.getElementById('report-description').textContent = report.description || '';
