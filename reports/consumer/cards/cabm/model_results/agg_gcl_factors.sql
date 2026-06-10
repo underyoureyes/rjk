@@ -52,7 +52,7 @@ mock:
       - MOBILE
       - TELEPHONY
     RUN_DATE:
-      - "09-Jun-2026"
+      - "today"
   filters:
     run_date:
       column: RUN_DATE

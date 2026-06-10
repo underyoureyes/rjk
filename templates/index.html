@@ -739,10 +739,13 @@ function renderParamToolbar(meta) {
   const toolbar = document.getElementById('param-toolbar');
   const params = meta.params || {};
 
+  const maxRowsCurrent = document.getElementById('max-rows-input')?.value || '2000';
+
   if (!Object.keys(params).length) {
     toolbar.innerHTML = `
       <span class="text-muted" style="font-size:.82rem;"><i class="bi bi-info-circle me-1"></i>No parameters</span>
-      <button class="btn btn-sm btn-rjk ms-auto" onclick="runReport()">
+      <div class="param-group ms-auto"><label for="max-rows-input">Max Rows</label><input type="number" id="max-rows-input" value="${maxRowsCurrent}" min="1" style="width:90px;" /></div>
+      <button class="btn btn-sm btn-rjk" onclick="runReport()">
         <i class="bi bi-play-fill me-1"></i>Run Report
       </button>`;
     return;
@@ -762,6 +765,7 @@ function renderParamToolbar(meta) {
     }
   }
 
+  html += `<div class="param-group"><label for="max-rows-input">Max Rows</label><input type="number" id="max-rows-input" value="${maxRowsCurrent}" min="1" style="width:90px;" /></div>`;
   html += `<div class="param-group" style="justify-content:flex-end;margin-top:auto;">
     <button class="btn btn-sm btn-rjk" onclick="runReport()">
       <i class="bi bi-play-fill me-1"></i>Run Report
@@ -771,8 +775,7 @@ function renderParamToolbar(meta) {
   toolbar.innerHTML = html;
 
   document.querySelectorAll('#param-toolbar input[data-param]').forEach(el => {
-    const key = el.dataset.param;
-    const cfg = (currentReport?.params || {})[key] || {};
+    const cfg = params[el.dataset.param] || {};
     if (cfg.type === 'date') {
       flatpickr(el, { dateFormat: 'd-M-Y', allowInput: true });
     }
@@ -793,6 +796,7 @@ function collectParams() {
 async function runReport() {
   if (!currentReport) return;
   const params = collectParams();
+  const maxRows = parseInt(document.getElementById('max-rows-input')?.value) || 2000;
 
   log.info(`Running ${currentReport.path} with params: ${JSON.stringify(params)}`);
   document.getElementById('row-count-badge').style.display = 'none';
@@ -807,7 +811,7 @@ async function runReport() {
     const res = await fetch('/api/reports/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: currentReport.path, params })
+      body: JSON.stringify({ path: currentReport.path, params, max_rows: maxRows })
     });
     if (!res.ok) {
       const err = await res.json();

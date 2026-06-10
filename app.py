@@ -62,10 +62,11 @@ async def run_report(request: Request):
     path = body.get("path")
     params = body.get("params", {})
     run_by = body.get("run_by", "anonymous")
+    max_rows = int(body.get("max_rows", 2000))
     if not path:
         raise HTTPException(status_code=400, detail="path is required")
     try:
-        result = report_service.run_report(path, params, run_by)
+        result = report_service.run_report(path, params, run_by, max_rows)
         return result
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))

@@ -7,6 +7,7 @@ from RJK.parser.sql_metadata_parser import parse_sql_metadata
 from RJK.runners.base import BaseRunner
 
 _DATE_FMTS = ("%d-%b-%Y", "%Y-%m-%d")
+_TODAY = lambda: datetime.now().strftime("%d-%b-%Y")
 
 
 def _parse_date(val: str):
@@ -47,7 +48,7 @@ class MockRunner(BaseRunner):
             op: "="
     """
 
-    def run(self, sql_path: Path, params: dict, limit: int | None = None) -> list[dict]:
+    def run(self, sql_path: Path, params: dict, limit: int = 2000) -> list[dict]:
         meta = parse_sql_metadata(sql_path)
         mock_cfg = meta.get("mock", {})
         dimensions: dict[str, list] = mock_cfg.get("dimensions", {})
@@ -57,9 +58,13 @@ class MockRunner(BaseRunner):
         if not dimensions:
             return [{"message": "no mock data configured", "path": str(sql_path)}]
 
+        today = _TODAY()
+        resolved = {k: [today if str(v).lower() == "today" else v for v in vals]
+                    for k, vals in dimensions.items()}
+
         rows = []
-        for combo in itertools.product(*dimensions.values()):
-            row = dict(zip(dimensions.keys(), combo))
+        for combo in itertools.product(*resolved.values()):
+            row = dict(zip(resolved.keys(), combo))
             for col, cfg in numerics.items():
                 lo = float(cfg.get("min", 0.0))
                 hi = float(cfg.get("max", 1.0))
@@ -86,4 +91,4 @@ class MockRunner(BaseRunner):
                 continue
             rows = [r for r in rows if col in r and cmp(str(r[col]), str(param_val))]
 
-        return rows
+        return rows[:limit]

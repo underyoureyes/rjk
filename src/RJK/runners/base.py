@@ -4,5 +4,5 @@ from pathlib import Path
 
 class BaseRunner(ABC):
     @abstractmethod
-    def run(self, sql_path: Path, params: dict, limit: int | None = None) -> list[dict]:
+    def run(self, sql_path: Path, params: dict, limit: int = 2000) -> list[dict]:
         """Execute the report and return rows as a list of dicts."""

@@ -47,7 +47,7 @@ mock:
       - "01-Apr-2024"
       - "01-Jul-2024"
       - "01-Oct-2024"
-      - "09-Jun-2026"
+      - "today"
   filters:
     run_date:
       column: RUN_DATE

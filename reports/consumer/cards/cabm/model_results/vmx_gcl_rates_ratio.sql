@@ -62,7 +62,7 @@ mock:
       - "01-Nov-2024"
       - "01-Dec-2024"
       - "01-Jan-2025"
-      - "09-Jun-2026"
+      - "today"
   filters:
     run_date:
       column: AS_OF_DATE
