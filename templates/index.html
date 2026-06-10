@@ -287,6 +287,7 @@
         <div id="tab-raw-data">
           <div class="grid-toolbar" style="border-radius:0; border-top:none;">
             <span class="section-title mb-0">Results</span>
+            <span id="run-id-badge" style="display:none; font-size:.75rem; color:var(--text-muted);">Run ID: <span id="run-id-value" class="font-monospace fw-semibold"></span></span>
             <span id="row-count-badge" class="row-count-badge" style="display:none;"></span>
             <div class="ms-auto d-flex gap-2 align-items-center">
               <div class="input-group input-group-sm" style="width:210px;">
@@ -808,6 +809,7 @@ async function selectReport(report) {
       reportGridApi.setGridOption('rowData', []);
     }
     document.getElementById('row-count-badge').style.display = 'none';
+    document.getElementById('run-id-badge').style.display = 'none';
     document.getElementById('btn-csv').disabled = true;
     document.getElementById('btn-excel').disabled = true;
     document.getElementById('btn-cols').disabled = true;
@@ -946,6 +948,7 @@ function renderResultsGrid(rows) {
       reportGridApi.setGridOption('rowData', []);
     }
     document.getElementById('row-count-badge').style.display = 'none';
+    document.getElementById('run-id-badge').style.display = 'none';
     return;
   }
 
@@ -986,6 +989,11 @@ function renderResultsGrid(rows) {
   const badge = document.getElementById('row-count-badge');
   badge.textContent = rows.length.toLocaleString() + ' rows';
   badge.style.display = '';
+
+  if (lastRunResult?.run_id != null) {
+    document.getElementById('run-id-value').textContent = lastRunResult.run_id;
+    document.getElementById('run-id-badge').style.display = '';
+  }
 }
 
 // ============================================================
