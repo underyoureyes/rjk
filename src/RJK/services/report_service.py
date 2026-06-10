@@ -28,7 +28,7 @@ class ReportService:
     def get_metadata(self, report_path: str) -> dict:
         return parse_sql_metadata(self._resolve_path(report_path))
 
-    def run_report(self, report_path: str, params: dict, run_by: str = "anonymous", limit: int = 2000) -> dict:
+    def run_report(self, report_path: str, params: dict, run_by: str = "anonymous", limit: int | None = 2000) -> dict:
         sql_path = self._resolve_path(report_path)
         try:
             rows = self.runner.run(sql_path, params, limit)

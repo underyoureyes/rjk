@@ -26,7 +26,7 @@ class AggregationService:
         if not value_cols:
             raise ValueError("value_cols must contain at least one column")
 
-        result = self.report_service.run_report(report_path, params, run_by="aggs-preview")
+        result = self.report_service.run_report(report_path, params, run_by="aggs-preview", limit=None)
         rows = result["rows"]
         if not rows:
             return {"rows": [], "row_count": 0}

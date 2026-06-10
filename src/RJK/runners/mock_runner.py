@@ -97,7 +97,7 @@ class MockRunner(BaseRunner):
             op: "="
     """
 
-    def run(self, sql_path: Path, params: dict, limit: int = 2000) -> list[dict]:
+    def run(self, sql_path: Path, params: dict, limit: int | None = 2000) -> list[dict]:
         meta = parse_sql_metadata(sql_path)
         mock_cfg = meta.get("mock", {})
         dimensions: dict[str, list] = mock_cfg.get("dimensions", {})
@@ -149,4 +149,4 @@ class MockRunner(BaseRunner):
                 continue
             rows = [r for r in rows if col in r and cmp(str(r[col]), str(param_val))]
 
-        return rows[:limit]
+        return rows if limit is None else rows[:limit]

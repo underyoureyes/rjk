@@ -10,7 +10,7 @@ class OdbcRunner(BaseRunner):
     def __init__(self, conn_string: str) -> None:
         self.conn_string = conn_string
 
-    def run(self, sql_path: Path, params: dict, limit: int = 2000) -> list[dict]:
+    def run(self, sql_path: Path, params: dict, limit: int | None = 2000) -> list[dict]:
         try:
             import pyodbc  # optional dependency
         except ImportError as exc:
@@ -22,7 +22,8 @@ class OdbcRunner(BaseRunner):
         for key, val in params.items():
             sql = sql.replace(f":{key}", f"'{val}'")
 
-        sql += f"\nLIMIT {int(limit)}"
+        if limit is not None:
+            sql += f"\nLIMIT {int(limit)}"
 
         conn = pyodbc.connect(self.conn_string)
         try:
