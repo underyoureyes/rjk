@@ -394,6 +394,7 @@
             <div id="aggs-grid-section" style="display:none;">
               <div class="grid-toolbar" style="border-radius:6px 6px 0 0;">
                 <span class="section-title mb-0">Aggregated Result</span>
+                <span id="aggs-run-id-badge" style="display:none; font-size:.75rem; color:var(--text-muted);">Run ID: <span id="aggs-run-id-value" class="font-monospace fw-semibold"></span></span>
                 <span id="aggs-row-count-badge" class="row-count-badge ms-2" style="display:none;"></span>
                 <div class="ms-auto d-flex gap-2 align-items-center">
                   <div class="input-group input-group-sm" style="width:210px;">
@@ -804,6 +805,7 @@ async function selectReport(report) {
     lastAggsResult = null;
     document.getElementById('aggs-signoff-bar').style.display = 'none';
     document.getElementById('aggs-source-badge').style.display = 'none';
+    document.getElementById('aggs-run-id-badge').style.display = 'none';
     if (reportGridApi) {
       reportGridApi.setGridOption('columnDefs', []);
       reportGridApi.setGridOption('rowData', []);
@@ -1429,9 +1431,13 @@ async function previewAggregation() {
     }
     const data = await res.json();
     log.success(`Aggregation complete — ${data.row_count.toLocaleString()} rows`);
-    lastAggsResult = { group_by, value_cols, row_count: data.row_count, source_row_count: data.source_row_count };
+    lastAggsResult = { group_by, value_cols, row_count: data.row_count, source_row_count: data.source_row_count, run_id: data.run_id };
     document.getElementById('aggs-source-count').textContent = data.source_row_count.toLocaleString();
     document.getElementById('aggs-source-badge').style.display = '';
+    if (data.run_id != null) {
+      document.getElementById('aggs-run-id-value').textContent = data.run_id;
+      document.getElementById('aggs-run-id-badge').style.display = '';
+    }
     document.getElementById('aggs-search').value = '';
     renderAggsGrid(data.rows);
     const bar = document.getElementById('aggs-signoff-bar');
@@ -1442,6 +1448,7 @@ async function previewAggregation() {
     lastAggsResult = null;
     document.getElementById('aggs-signoff-bar').style.display = 'none';
     document.getElementById('aggs-source-badge').style.display = 'none';
+    document.getElementById('aggs-run-id-badge').style.display = 'none';
     log.error('Aggregation failed: ' + e.message);
     alert('Aggregation failed: ' + e.message);
   } finally {
