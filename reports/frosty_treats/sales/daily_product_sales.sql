@@ -1,8 +1,8 @@
 /*
-title: "Daily Product Sales"
-description: "Units sold, revenue and margin by product, flavour and region across the last 14 days. Select a sales date to see all data up to and including that day."
+title: "Ice Cream Daily Sales"
+description: "Units sold, revenue and margin by flavour and region across the last 14 days. Select a sales date to see all data up to and including that day."
 owner: "Sales Analytics"
-tags: [sales, daily, ice-cream, iced-lolly, soft-drink]
+tags: [sales, daily, ice-cream]
 params:
   sales_date:
     type: date
@@ -10,10 +10,6 @@ params:
     default: "today"
 mock:
   dimensions:
-    PRODUCT:
-      - Ice Cream
-      - Iced Lolly
-      - Soft Drink
     FLAVOUR:
       - Vanilla
       - Chocolate
@@ -21,6 +17,8 @@ mock:
       - Mango
       - Raspberry
       - Lemon
+      - Mint Choc Chip
+      - Toffee Crunch
     REGION:
       - North
       - South
@@ -59,7 +57,7 @@ mock:
       max: 250.00
       decimals: 2
     AVG_UNIT_PRICE:
-      min: 0.50
+      min: 0.80
       max: 4.99
       decimals: 2
     GROSS_MARGIN_PCT:
@@ -69,20 +67,19 @@ mock:
 */
 
 SELECT
-    s.PRODUCT,
     s.FLAVOUR,
     s.REGION,
     s.SALES_DATE,
     s.REPORT_DATE,
-    SUM(s.UNITS_SOLD)                               AS UNITS_SOLD,
-    SUM(s.REVENUE)                                  AS REVENUE,
-    AVG(s.UNIT_PRICE)                               AS AVG_UNIT_PRICE,
-    AVG(s.GROSS_MARGIN_PCT)                         AS GROSS_MARGIN_PCT
+    SUM(s.UNITS_SOLD)       AS UNITS_SOLD,
+    SUM(s.REVENUE)          AS REVENUE,
+    AVG(s.UNIT_PRICE)       AS AVG_UNIT_PRICE,
+    AVG(s.GROSS_MARGIN_PCT) AS GROSS_MARGIN_PCT
 FROM
-    sales.daily_transactions    s
+    sales.daily_transactions s
 WHERE
     s.SALES_DATE <= :sales_date
 GROUP BY
-    s.PRODUCT, s.FLAVOUR, s.REGION, s.SALES_DATE, s.REPORT_DATE
+    s.FLAVOUR, s.REGION, s.SALES_DATE, s.REPORT_DATE
 ORDER BY
-    s.SALES_DATE, s.PRODUCT, s.FLAVOUR, s.REGION
+    s.SALES_DATE, s.FLAVOUR, s.REGION

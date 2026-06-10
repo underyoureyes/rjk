@@ -27,6 +27,38 @@ def _resolve_date_expr(val: str) -> str:
     return val
 
 
+def _generate_date_range(cfg: dict) -> list[str]:
+    """Expand a date_range spec into a list of formatted date strings.
+
+    cfg keys:
+      start  – date expr, e.g. 'today-730'
+      end    – date expr, e.g. 'today'
+      freq   – 'daily' | 'weekday' (Mon-Fri) | 'weekly' (Fridays) | 'monthly'
+    """
+    start = _parse_date(_resolve_date_expr(str(cfg.get("start", "today"))))
+    end   = _parse_date(_resolve_date_expr(str(cfg.get("end",   "today"))))
+    freq  = cfg.get("freq", "daily")
+    if not start or not end:
+        return []
+
+    dates, cur = [], start
+    while cur <= end:
+        wd = cur.weekday()  # 0=Mon … 6=Sun
+        include = (
+            freq == "daily"    or
+            (freq == "weekday" and wd < 5) or
+            (freq == "weekly"  and wd == 4) or   # Fridays
+            (freq == "monthly" and cur.day == 1)
+        )
+        if include:
+            dates.append(cur.strftime(_FMT))
+        if freq == "monthly":
+            cur = (cur.replace(day=28) + timedelta(days=4)).replace(day=1)
+        else:
+            cur += timedelta(days=1)
+    return dates
+
+
 def _parse_date(val: str):
     for fmt in _DATE_FMTS:
         try:
@@ -75,8 +107,12 @@ class MockRunner(BaseRunner):
         if not dimensions:
             return [{"message": "no mock data configured", "path": str(sql_path)}]
 
-        resolved = {k: [_resolve_date_expr(str(v)) for v in vals]
-                    for k, vals in dimensions.items()}
+        resolved = {}
+        for k, vals in dimensions.items():
+            if isinstance(vals, dict) and "date_range" in vals:
+                resolved[k] = _generate_date_range(vals["date_range"])
+            else:
+                resolved[k] = [_resolve_date_expr(str(v)) for v in vals]
 
         rows = []
         for combo in itertools.product(*resolved.values()):
