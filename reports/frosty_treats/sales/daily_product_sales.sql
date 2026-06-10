@@ -47,6 +47,9 @@ mock:
     sales_date:
       column: SALES_DATE
       op: "<="
+  derived:
+    MONTH:
+      month_start_of: SALES_DATE
   numerics:
     UNITS_SOLD:
       min: 10
@@ -70,6 +73,7 @@ SELECT
     s.FLAVOUR,
     s.REGION,
     s.SALES_DATE,
+    TRUNC(s.SALES_DATE, 'MM')  AS MONTH,
     s.REPORT_DATE,
     SUM(s.UNITS_SOLD)       AS UNITS_SOLD,
     SUM(s.REVENUE)          AS REVENUE,

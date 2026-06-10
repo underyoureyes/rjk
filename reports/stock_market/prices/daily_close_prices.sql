@@ -24,6 +24,9 @@ mock:
     as_of_date:
       column: CLOSE_DATE
       op: "<="
+  derived:
+    MONTH:
+      month_start_of: CLOSE_DATE
   numerics:
     OPEN_PRICE:
       min: 5.00
@@ -50,6 +53,7 @@ mock:
 SELECT
     p.TICKER,
     p.CLOSE_DATE,
+    TRUNC(p.CLOSE_DATE, 'MM')  AS MONTH,
     p.REPORT_DATE,
     p.OPEN_PRICE,
     p.HIGH_PRICE,

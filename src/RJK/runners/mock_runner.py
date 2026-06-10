@@ -103,6 +103,7 @@ class MockRunner(BaseRunner):
         dimensions: dict[str, list] = mock_cfg.get("dimensions", {})
         numerics: dict[str, dict] = mock_cfg.get("numerics", {})
         filters: dict[str, dict] = mock_cfg.get("filters", {})
+        derived: dict[str, dict] = mock_cfg.get("derived", {})
 
         if not dimensions:
             return [{"message": "no mock data configured", "path": str(sql_path)}]
@@ -130,6 +131,11 @@ class MockRunner(BaseRunner):
                     row[col] = random.randint(int(lo), int(hi))
                 else:
                     row[col] = round(random.uniform(lo, hi), decimals)
+            for col_name, col_cfg in derived.items():
+                src = col_cfg.get("month_start_of")
+                if src and src in row:
+                    d = _parse_date(str(row[src]))
+                    row[col_name] = d.replace(day=1).strftime(_FMT) if d else None
             rows.append(row)
 
         for param_name, f_cfg in filters.items():
