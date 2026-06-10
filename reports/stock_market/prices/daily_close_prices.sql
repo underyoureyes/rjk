@@ -13,6 +13,11 @@ mock:
     TICKER:
       - PLTR
       - GOOGL
+      - AAPL
+      - TSLA
+      - MSFT
+      - NVDA
+      - META
     CLOSE_DATE:
       date_range:
         start: "today-730"
