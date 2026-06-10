@@ -1162,7 +1162,7 @@ function showSignoffModal() {
 function showAggsSignoffModal() {
   if (!lastRunResult || !lastAggsResult) return;
   document.getElementById('signoff-modal-title').innerHTML = '<i class="bi bi-pen me-2"></i>Sign Off Aggregation';
-  document.getElementById('signoff-run-id-input').value = lastRunResult.run_id;
+  document.getElementById('signoff-run-id-input').value = lastAggsResult.run_id;
   document.getElementById('signoff-report-input').value = currentReport.path;
   const aggSummary = [
     `group_by: [${lastAggsResult.group_by.join(', ')}]`,
@@ -1182,7 +1182,7 @@ async function submitSignoff() {
 
   const isAgg = document.getElementById('signoff-modal-title').textContent.includes('Aggregation');
   const payload = {
-    run_id: lastRunResult.run_id,
+    run_id: isAgg ? lastAggsResult.run_id : lastRunResult.run_id,
     report_path: currentReport.path,
     signed_off_by: by,
     notes: document.getElementById('signoff-notes-input').value.trim(),
