@@ -370,16 +370,14 @@
                 </div>
                 <div class="param-group" style="min-width:200px; flex:1;">
                   <label>Value Column(s) <span style="font-weight:400; color:var(--text-muted);">(multi-select)</span></label>
-                  <select id="aggs-value-col" multiple class="form-select form-select-sm" style="min-height:80px; background:var(--bg-panel); color:var(--text-primary); border-color:var(--input-border);"></select>
+                  <select id="aggs-value-col" multiple class="form-select form-select-sm" style="min-height:80px; background:var(--bg-panel); color:var(--text-primary); border-color:var(--input-border);"
+                          onchange="updateColFuncRows()"></select>
                 </div>
-                <div class="param-group" style="min-width:120px;">
-                  <label>Function</label>
-                  <select id="aggs-func" class="form-select form-select-sm" style="background:var(--bg-panel); color:var(--text-primary); border-color:var(--input-border);">
-                    <option value="sum">Sum</option>
-                    <option value="mean">Mean</option>
-                    <option value="max">Max</option>
-                    <option value="min">Min</option>
-                  </select>
+                <div class="param-group" style="min-width:180px; flex:1;">
+                  <label>Function per Column</label>
+                  <div id="aggs-col-func-list" style="display:flex; flex-direction:column; gap:4px; min-height:34px;">
+                    <span style="font-size:.78rem; color:var(--text-muted);">Select value columns first</span>
+                  </div>
                 </div>
                 <div class="param-group" style="justify-content:flex-end;">
                   <button class="btn btn-sm btn-rjk" id="btn-aggs-preview" onclick="previewAggregation()">
@@ -1292,23 +1290,59 @@ function _populateAggsSelectors(rows) {
   valueColEl.innerHTML = numCols.map(c => `<option value="${c}">${c}</option>`).join('');
 }
 
+function updateColFuncRows() {
+  const selected = [...document.getElementById('aggs-value-col').selectedOptions].map(o => o.value);
+  const container = document.getElementById('aggs-col-func-list');
+  const existing = {};
+  container.querySelectorAll('[data-col]').forEach(row => {
+    existing[row.dataset.col] = row.querySelector('select').value;
+  });
+  if (!selected.length) {
+    container.innerHTML = '<span style="font-size:.78rem; color:var(--text-muted);">Select value columns first</span>';
+    return;
+  }
+  container.innerHTML = '';
+  selected.forEach(col => {
+    const func = existing[col] || 'sum';
+    const row = document.createElement('div');
+    row.dataset.col = col;
+    row.className = 'd-flex align-items-center gap-2';
+    row.innerHTML = `
+      <span style="font-size:.82rem; color:var(--text-label); min-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${col}">${col}</span>
+      <select class="form-select form-select-sm" style="width:90px; background:var(--bg-panel); color:var(--text-primary); border-color:var(--input-border);">
+        <option value="sum"  ${func==='sum' ?'selected':''}>Sum</option>
+        <option value="mean" ${func==='mean'?'selected':''}>Mean</option>
+        <option value="max"  ${func==='max' ?'selected':''}>Max</option>
+        <option value="min"  ${func==='min' ?'selected':''}>Min</option>
+      </select>`;
+    container.appendChild(row);
+  });
+}
+
+function getColFuncs() {
+  const result = {};
+  document.getElementById('aggs-col-func-list').querySelectorAll('[data-col]').forEach(row => {
+    result[row.dataset.col] = row.querySelector('select').value;
+  });
+  return result;
+}
+
 async function previewAggregation() {
   if (!currentReport || !lastRunResult) return;
 
   const groupByEl = document.getElementById('aggs-group-by');
   const group_by = [...groupByEl.selectedOptions].map(o => o.value);
-  const valueColEl = document.getElementById('aggs-value-col');
-  const value_cols = [...valueColEl.selectedOptions].map(o => o.value);
-  const agg_func = document.getElementById('aggs-func').value;
+  const value_cols = getColFuncs();
 
   if (!group_by.length) { log.warn('Select at least one group-by column'); return; }
-  if (!value_cols.length) { log.warn('Select at least one value column'); return; }
+  if (!Object.keys(value_cols).length) { log.warn('Select at least one value column'); return; }
 
   const btn = document.getElementById('btn-aggs-preview');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Running…';
 
-  log.info(`Aggregating ${currentReport.path}: group_by=[${group_by.join(', ')}] ${agg_func}(${value_cols.join(', ')})`);
+  const colSummary = Object.entries(value_cols).map(([c,f]) => `${c}→${f}`).join(', ');
+  log.info(`Aggregating ${currentReport.path}: group_by=[${group_by.join(', ')}] ${colSummary}`);
   try {
     const res = await fetch('/api/reports/aggregate', {
       method: 'POST',
@@ -1318,7 +1352,6 @@ async function previewAggregation() {
         params: lastRunResult._params || {},
         group_by,
         value_cols,
-        agg_func,
       })
     });
     if (!res.ok) {
