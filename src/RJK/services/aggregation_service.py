@@ -1,18 +1,12 @@
 import pandas as pd
 
-from RJK.services.report_service import ReportService
-
 SUPPORTED_FUNCS = frozenset({"sum", "mean", "max", "min"})
 
 
 class AggregationService:
-    def __init__(self, report_service: ReportService) -> None:
-        self.report_service = report_service
-
     def preview(
         self,
-        report_path: str,
-        params: dict,
+        rows: list[dict],
         group_by: list[str],
         value_cols: dict[str, str],  # {column: function}
     ) -> dict:
@@ -27,11 +21,8 @@ class AggregationService:
                 f"Unsupported function(s) {sorted(bad_funcs)}. Choose from: {', '.join(sorted(SUPPORTED_FUNCS))}"
             )
 
-        result = self.report_service.run_report(report_path, params, run_by="aggs-preview", limit=None)
-        rows = result["rows"]
-        run_id = result.get("run_id")
         if not rows:
-            return {"rows": [], "row_count": 0, "source_row_count": 0, "run_id": run_id}
+            return {"rows": [], "row_count": 0, "source_row_count": 0}
 
         df = pd.DataFrame(rows)
 
@@ -52,4 +43,4 @@ class AggregationService:
         rename.update({col: col.lower() for col in group_by})
         agg_df = agg_df.rename(columns=rename)
 
-        return {"rows": agg_df.to_dict(orient="records"), "row_count": len(agg_df), "source_row_count": len(rows), "run_id": run_id}
+        return {"rows": agg_df.to_dict(orient="records"), "row_count": len(agg_df), "source_row_count": len(rows)}

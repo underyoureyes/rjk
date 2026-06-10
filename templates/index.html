@@ -1162,7 +1162,7 @@ function showSignoffModal() {
 function showAggsSignoffModal() {
   if (!lastRunResult || !lastAggsResult) return;
   document.getElementById('signoff-modal-title').innerHTML = '<i class="bi bi-pen me-2"></i>Sign Off Aggregation';
-  document.getElementById('signoff-run-id-input').value = lastAggsResult.run_id;
+  document.getElementById('signoff-run-id-input').value = lastRunResult.run_id;
   document.getElementById('signoff-report-input').value = currentReport.path;
   const aggSummary = [
     `group_by: [${lastAggsResult.group_by.join(', ')}]`,
@@ -1182,7 +1182,7 @@ async function submitSignoff() {
 
   const isAgg = document.getElementById('signoff-modal-title').textContent.includes('Aggregation');
   const payload = {
-    run_id: isAgg ? lastAggsResult.run_id : lastRunResult.run_id,
+    run_id: lastRunResult.run_id,
     report_path: currentReport.path,
     signed_off_by: by,
     notes: document.getElementById('signoff-notes-input').value.trim(),
@@ -1419,8 +1419,7 @@ async function previewAggregation() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        path: currentReport.path,
-        params: lastRunResult._params || {},
+        rows: lastRunResult.rows,
         group_by,
         value_cols,
       })
@@ -1431,13 +1430,11 @@ async function previewAggregation() {
     }
     const data = await res.json();
     log.success(`Aggregation complete — ${data.row_count.toLocaleString()} rows`);
-    lastAggsResult = { group_by, value_cols, row_count: data.row_count, source_row_count: data.source_row_count, run_id: data.run_id };
+    lastAggsResult = { group_by, value_cols, row_count: data.row_count, source_row_count: data.source_row_count };
     document.getElementById('aggs-source-count').textContent = data.source_row_count.toLocaleString();
     document.getElementById('aggs-source-badge').style.display = '';
-    if (data.run_id != null) {
-      document.getElementById('aggs-run-id-value').textContent = data.run_id;
-      document.getElementById('aggs-run-id-badge').style.display = '';
-    }
+    document.getElementById('aggs-run-id-value').textContent = lastRunResult.run_id;
+    document.getElementById('aggs-run-id-badge').style.display = '';
     document.getElementById('aggs-search').value = '';
     renderAggsGrid(data.rows);
     const bar = document.getElementById('aggs-signoff-bar');

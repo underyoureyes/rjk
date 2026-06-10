@@ -28,7 +28,7 @@ for warning in config.validate():
 audit = AuditService(config.audit_db_path)
 report_service = ReportService(config, audit)
 export_service = ExportService()
-agg_service = AggregationService(report_service)
+agg_service = AggregationService()
 
 app = FastAPI(title="RJK Reporting Framework", version="1.0.0")
 
@@ -79,18 +79,15 @@ async def run_report(request: Request):
 @app.post("/api/reports/aggregate")
 async def aggregate_report(request: Request):
     body = await request.json()
-    path = body.get("path")
-    params = body.get("params", {})
+    rows = body.get("rows", [])
     group_by = body.get("group_by", [])
     value_cols = body.get("value_cols", {})
     if isinstance(value_cols, list):
         value_cols = {col: "sum" for col in value_cols}
-    if not path:
-        raise HTTPException(status_code=400, detail="path is required")
     if not value_cols:
         raise HTTPException(status_code=400, detail="value_cols is required")
     try:
-        result = agg_service.preview(path, params, group_by, value_cols)
+        result = agg_service.preview(rows, group_by, value_cols)
         return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
