@@ -391,6 +391,36 @@
               <div class="grid-toolbar" style="border-radius:6px 6px 0 0;">
                 <span class="section-title mb-0">Aggregated Result</span>
                 <span id="aggs-row-count-badge" class="row-count-badge ms-2" style="display:none;"></span>
+                <div class="ms-auto d-flex gap-2 align-items-center">
+                  <div class="input-group input-group-sm" style="width:210px;">
+                    <span class="input-group-text px-2"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" id="aggs-search" placeholder="Search…"
+                           oninput="applyAggsSearch(this.value)">
+                  </div>
+                  <button class="btn btn-sm btn-warning" onclick="exportAggsCsv()">
+                    <i class="bi bi-filetype-csv me-1"></i>CSV
+                  </button>
+                  <button class="btn btn-sm btn-success" onclick="exportAggsExcel()">
+                    <i class="bi bi-file-earmark-excel me-1"></i>Excel
+                  </button>
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-info dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                      <i class="bi bi-layout-three-columns me-1"></i>Columns
+                    </button>
+                    <div class="dropdown-menu p-2 dropdown-menu-end" style="min-width:230px;">
+                      <div class="d-flex align-items-center justify-content-between mb-2">
+                        <small class="fw-bold" style="color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase;">Columns</small>
+                        <div class="d-flex gap-2">
+                          <a href="#" class="small text-decoration-none" onclick="aggsColChooserAll(true);return false;">All</a>
+                          <span style="color:var(--text-muted);">·</span>
+                          <a href="#" class="small text-decoration-none" onclick="aggsColChooserAll(false);return false;">None</a>
+                        </div>
+                      </div>
+                      <div id="aggs-col-chooser-list" style="max-height:260px;overflow-y:auto;"></div>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="grid-outer" style="border-radius:0 0 6px 6px;">
                 <div id="aggs-grid" class="ag-theme-alpine grid-wrap"></div>
@@ -1389,6 +1419,7 @@ async function previewAggregation() {
     const data = await res.json();
     log.success(`Aggregation complete — ${data.row_count.toLocaleString()} rows`);
     lastAggsResult = { group_by, value_cols, row_count: data.row_count };
+    document.getElementById('aggs-search').value = '';
     renderAggsGrid(data.rows);
     const bar = document.getElementById('aggs-signoff-bar');
     bar.style.display = '';
@@ -1429,12 +1460,78 @@ function renderAggsGrid(rows) {
       pagination: true,
       paginationPageSize: 100,
       animateRows: true,
+      onFilterChanged: _updateAggsRowCountBadge,
     });
   }
 
+  _populateAggsColChooser(colDefs);
+  _updateAggsRowCountBadge();
+}
+
+function _updateAggsRowCountBadge() {
+  if (!aggsGridApi) return;
+  const displayed = aggsGridApi.getDisplayedRowCount();
+  const total = lastAggsResult ? lastAggsResult.row_count : displayed;
   const badge = document.getElementById('aggs-row-count-badge');
-  badge.textContent = rows.length.toLocaleString() + ' rows';
+  badge.textContent = displayed < total
+    ? `${displayed.toLocaleString()} of ${total.toLocaleString()} rows`
+    : `${total.toLocaleString()} rows`;
   badge.style.display = '';
+}
+
+function applyAggsSearch(value) {
+  if (!aggsGridApi) return;
+  aggsGridApi.setGridOption('quickFilterText', value);
+  _updateAggsRowCountBadge();
+}
+
+function toggleAggsCol(colKey, visible) {
+  if (aggsGridApi) aggsGridApi.applyColumnState({ state: [{ colId: colKey, hide: !visible }] });
+}
+
+function aggsColChooserAll(checked) {
+  document.querySelectorAll('#aggs-col-chooser-list .form-check-input').forEach(cb => {
+    cb.checked = checked;
+    toggleAggsCol(cb.dataset.col, checked);
+  });
+}
+
+function _populateAggsColChooser(colDefs) {
+  document.getElementById('aggs-col-chooser-list').innerHTML = colDefs.map(col => `
+    <div class="form-check mb-1">
+      <input class="form-check-input" type="checkbox" checked
+             id="agg-col-${col.field}" data-col="${col.field}"
+             onchange="toggleAggsCol('${col.field}', this.checked)">
+      <label class="form-check-label" style="font-size:.82rem;" for="agg-col-${col.field}">${col.field}</label>
+    </div>`).join('');
+}
+
+function exportAggsCsv() {
+  if (!aggsGridApi) return;
+  const rows = _collectGridRows(aggsGridApi);
+  if (!rows.length) { log.warn('No agg rows to export'); return; }
+  const stem = currentReport?.path.split('/').pop().replace('.sql', '') || 'agg';
+  _triggerDownload(new Blob([_buildCsv(rows)], { type: 'text/csv;charset=utf-8;' }), stem + '_agg.csv');
+  log.success(`Agg CSV downloaded (${rows.length.toLocaleString()} rows)`);
+}
+
+function exportAggsExcel() {
+  if (!aggsGridApi) return;
+  const rows = _collectGridRows(aggsGridApi);
+  if (!rows.length) { log.warn('No agg rows to export'); return; }
+  const stem = (currentReport?.path.split('/').pop().replace('.sql', '') || 'agg') + '_agg';
+  const sheetName = stem.slice(0, 31);
+  log.info(`Exporting agg Excel (${rows.length.toLocaleString()} rows)…`);
+  try {
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    _triggerDownload(new Blob([buf], { type: 'application/octet-stream' }), sheetName + '.xlsx');
+    log.success(`Agg Excel downloaded`);
+  } catch (e) {
+    log.error('Agg Excel export failed: ' + e.message);
+  }
 }
 
 // ============================================================
