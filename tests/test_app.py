@@ -33,7 +33,7 @@ class TestRoot:
         res = client.get("/")
         assert res.status_code == 200
         assert "text/html" in res.headers["content-type"]
-        assert "RJK Report Framework" in res.text
+        assert "RJK Reporting Framework" in res.text
 
 
 class TestListReports:

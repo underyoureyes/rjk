@@ -1,4 +1,4 @@
-# RJK Report Framework — Claude Code Project
+# RJK Reporting Framework — Claude Code Project
 
 ## What this project does
 

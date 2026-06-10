@@ -30,7 +30,7 @@ report_service = ReportService(config, audit)
 export_service = ExportService()
 agg_service = AggregationService(report_service)
 
-app = FastAPI(title="RJK Report Framework", version="1.0.0")
+app = FastAPI(title="RJK Reporting Framework", version="1.0.0")
 
 
 @app.get("/", response_class=HTMLResponse)

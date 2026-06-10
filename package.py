@@ -1,5 +1,5 @@
 """
-Build distribution zips for the RJK Report Framework.
+Build distribution zips for the RJK Reporting Framework.
 
 Usage:
     python package.py
