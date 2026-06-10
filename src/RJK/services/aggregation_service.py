@@ -30,7 +30,7 @@ class AggregationService:
         result = self.report_service.run_report(report_path, params, run_by="aggs-preview", limit=None)
         rows = result["rows"]
         if not rows:
-            return {"rows": [], "row_count": 0}
+            return {"rows": [], "row_count": 0, "source_row_count": 0}
 
         df = pd.DataFrame(rows)
 
@@ -51,4 +51,4 @@ class AggregationService:
         rename.update({col: col.lower() for col in group_by})
         agg_df = agg_df.rename(columns=rename)
 
-        return {"rows": agg_df.to_dict(orient="records"), "row_count": len(agg_df)}
+        return {"rows": agg_df.to_dict(orient="records"), "row_count": len(agg_df), "source_row_count": len(rows)}
