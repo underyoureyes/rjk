@@ -1192,7 +1192,6 @@ async function submitSignoff() {
     const data = await res.json();
     _signoffModal.hide();
     log.success(`Sign-off #${data.signoff_id} recorded for run #${payload.run_id}`);
-    document.getElementById('signoff-banner').style.display = 'none';
     loadAudit();
   } catch (e) {
     log.error('Sign-off failed: ' + e.message);
