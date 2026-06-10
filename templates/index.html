@@ -741,7 +741,7 @@ function renderTree(node, container, depth) {
       const popBody = (val.description || '') + (tags ? `<div class="mt-1">${tags}</div>` : '');
       el.setAttribute('data-bs-toggle', 'popover');
       el.setAttribute('data-bs-trigger', 'hover');
-      el.setAttribute('data-bs-placement', 'right');
+      el.setAttribute('data-bs-placement', 'bottom');
       el.setAttribute('data-bs-html', 'true');
       el.setAttribute('data-bs-title', val.title || key.replace('.sql', ''));
       el.setAttribute('data-bs-content', popBody);
