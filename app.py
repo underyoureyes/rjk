@@ -140,6 +140,14 @@ async def export_excel(request: Request):
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+@app.get("/api/about")
+def get_about():
+    md_path = Path(__file__).parent / "CLAUDE.md"
+    if not md_path.exists():
+        raise HTTPException(status_code=404, detail="CLAUDE.md not found")
+    return {"content": md_path.read_text(encoding="utf-8")}
+
+
 @app.get("/api/audit")
 def get_audit(limit: int = 200):
     return {

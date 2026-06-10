@@ -185,6 +185,23 @@
   /* Theme picker active check */
   .theme-item .bi-check2 { visibility: hidden; }
   .theme-item.active .bi-check2 { visibility: visible; }
+
+  /* About modal markdown */
+  #about-content { color: var(--text-primary); font-size: .88rem; line-height: 1.7; }
+  #about-content h1 { font-size: 1.4rem; font-weight: 700; border-bottom: 2px solid var(--rjk-blue); padding-bottom: .3em; margin-bottom: .8em; color: var(--rjk-blue); }
+  #about-content h2 { font-size: 1.1rem; font-weight: 700; margin-top: 1.4em; margin-bottom: .5em; color: var(--text-primary); }
+  #about-content h3 { font-size: .95rem; font-weight: 600; margin-top: 1em; margin-bottom: .4em; }
+  #about-content code { font-size: .82rem; background: var(--bg-hover); color: var(--rjk-blue); padding: .1em .35em; border-radius: 3px; }
+  #about-content pre { background: #0d1117; color: #c9d1d9; border-radius: 6px; padding: 12px 16px; overflow-x: auto; margin: .8em 0; }
+  #about-content pre code { background: none; color: inherit; padding: 0; }
+  #about-content table { width: 100%; border-collapse: collapse; margin: .8em 0; font-size: .83rem; }
+  #about-content th { background: var(--rjk-blue); color: #fff; padding: 6px 12px; text-align: left; font-weight: 600; }
+  #about-content td { border: 1px solid var(--border); padding: 5px 12px; }
+  #about-content tr:nth-child(even) td { background: var(--bg-hover); }
+  #about-content ul, #about-content ol { padding-left: 1.5em; margin: .4em 0; }
+  #about-content hr { border-color: var(--border); margin: 1.2em 0; }
+  #about-content a { color: var(--rjk-blue); }
+  #about-content strong { color: var(--text-primary); }
 </style>
 </head>
 <body>
@@ -193,6 +210,9 @@
 <nav class="navbar navbar-dark px-4 py-2 d-flex align-items-center gap-3">
   <span class="navbar-brand"><i class="bi bi-table me-2"></i>RJK Report Framework</span>
   <span class="text-white navbar-subtitle me-auto">SQL · FastAPI · ag-Grid</span>
+  <button class="btn btn-sm btn-outline-light" onclick="showAbout()" title="About this framework">
+    <i class="bi bi-info-circle me-1"></i>About
+  </button>
   <span id="mock-badge" class="badge bg-warning text-dark" title="Running in mock mode — no database required">
     <i class="bi bi-cpu me-1"></i>Mock Mode
   </span>
@@ -529,10 +549,30 @@
   </div>
 </div>
 
+<!-- About Modal -->
+<div class="modal fade" id="aboutModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content" style="background:var(--bg-panel); color:var(--text-primary);">
+      <div class="modal-header" style="background:var(--rjk-blue); color:#fff;">
+        <h5 class="modal-title"><i class="bi bi-info-circle me-2"></i>About — RJK Report Framework</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="max-height:75vh; overflow-y:auto;">
+        <div id="about-content">
+          <div class="text-center py-5">
+            <div class="spinner-border" style="color:var(--rjk-blue);"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
 <script>
 // ============================================================
 // State
@@ -565,6 +605,24 @@ const log = {
   error:   m => _log('ERROR',   m),
 };
 function clearLogs() { document.getElementById('log-console').innerHTML = ''; }
+
+// ============================================================
+// About modal
+// ============================================================
+async function showAbout() {
+  const modal = new bootstrap.Modal(document.getElementById('aboutModal'));
+  const content = document.getElementById('about-content');
+  content.innerHTML = '<div class="text-center py-5"><div class="spinner-border" style="color:var(--rjk-blue);"></div></div>';
+  modal.show();
+  try {
+    const res = await fetch('/api/about');
+    const data = await res.json();
+    content.innerHTML = marked.parse(data.content);
+  } catch (e) {
+    content.innerHTML = '<div class="alert alert-danger">Failed to load content.</div>';
+    log.error('About: ' + e.message);
+  }
+}
 
 // ============================================================
 // Tab switching
