@@ -159,18 +159,3 @@ Two seed reports:
 | `stock_market/prices/daily_close_prices.sql` | ~3,650 | TICKER(7)×CLOSE_DATE(~522 weekdays, last 2 years) |
 
 ---
-
-## Style guide
-
-Matches `underyoureyes/ii-scraper` look and feel:
-- Bootstrap 5.3.3 + Bootstrap Icons 1.11.3
-- ag-Grid Community 32.3.3
-- Dark blue navbar `#003087`
-- Dark terminal log console (`#0d1117` background)
-- Grid toolbar with row count badge
-
----
-
-## Working style
-
-Ask before implementing any ambiguous change. Batch questions into one message. See `docs/conventions.md` in ii-scraper for Python coding standards.
