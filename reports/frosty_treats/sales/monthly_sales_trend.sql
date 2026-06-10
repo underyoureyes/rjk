@@ -45,6 +45,12 @@ mock:
       - "01-Nov-2025"
       - "01-Dec-2025"
       - "01-Jan-2026"
+      - "01-Feb-2026"
+      - "01-Mar-2026"
+      - "01-Apr-2026"
+      - "01-May-2026"
+      - "today"
+    REPORT_DATE:
       - "today"
   filters:
     as_of_date:
@@ -73,6 +79,7 @@ SELECT
     t.PRODUCT,
     t.FLAVOUR_CATEGORY,
     TRUNC(t.SALE_MONTH, 'MM')                       AS AS_OF_DATE,
+    t.REPORT_DATE,
     SUM(t.UNITS_SOLD)                               AS UNITS_SOLD,
     SUM(t.REVENUE)                                  AS REVENUE,
     (SUM(t.REVENUE) - LAG(SUM(t.REVENUE)) OVER (
@@ -90,6 +97,6 @@ FROM
 WHERE
     t.SALE_MONTH <= :as_of_date
 GROUP BY
-    t.PRODUCT, t.FLAVOUR_CATEGORY, TRUNC(t.SALE_MONTH, 'MM')
+    t.PRODUCT, t.FLAVOUR_CATEGORY, TRUNC(t.SALE_MONTH, 'MM'), t.REPORT_DATE
 ORDER BY
     t.PRODUCT, t.FLAVOUR_CATEGORY, AS_OF_DATE

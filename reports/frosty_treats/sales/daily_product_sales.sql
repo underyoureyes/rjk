@@ -1,6 +1,6 @@
 /*
 title: "Daily Product Sales"
-description: "Units sold and revenue by product, flavour and region for the selected sales date. Use to monitor day-on-day performance across the full product range."
+description: "Units sold, revenue and margin by product, flavour and region across the last 14 days. Select a sales date to see all data up to and including that day."
 owner: "Sales Analytics"
 tags: [sales, daily, ice-cream, iced-lolly, soft-drink]
 params:
@@ -21,8 +21,6 @@ mock:
       - Mango
       - Raspberry
       - Lemon
-      - Mint Choc Chip
-      - Toffee Crunch
     REGION:
       - North
       - South
@@ -31,19 +29,34 @@ mock:
       - Midlands
       - Scotland
     SALES_DATE:
+      - "today-13"
+      - "today-12"
+      - "today-11"
+      - "today-10"
+      - "today-9"
+      - "today-8"
+      - "today-7"
+      - "today-6"
+      - "today-5"
+      - "today-4"
+      - "today-3"
+      - "today-2"
+      - "today-1"
+      - "today"
+    REPORT_DATE:
       - "today"
   filters:
     sales_date:
       column: SALES_DATE
-      op: "="
+      op: "<="
   numerics:
     UNITS_SOLD:
       min: 10
-      max: 5000
+      max: 500
       decimals: 0
     REVENUE:
       min: 5.00
-      max: 2500.00
+      max: 250.00
       decimals: 2
     AVG_UNIT_PRICE:
       min: 0.50
@@ -60,6 +73,7 @@ SELECT
     s.FLAVOUR,
     s.REGION,
     s.SALES_DATE,
+    s.REPORT_DATE,
     SUM(s.UNITS_SOLD)                               AS UNITS_SOLD,
     SUM(s.REVENUE)                                  AS REVENUE,
     AVG(s.UNIT_PRICE)                               AS AVG_UNIT_PRICE,
@@ -67,8 +81,8 @@ SELECT
 FROM
     sales.daily_transactions    s
 WHERE
-    s.SALES_DATE = :sales_date
+    s.SALES_DATE <= :sales_date
 GROUP BY
-    s.PRODUCT, s.FLAVOUR, s.REGION, s.SALES_DATE
+    s.PRODUCT, s.FLAVOUR, s.REGION, s.SALES_DATE, s.REPORT_DATE
 ORDER BY
-    s.PRODUCT, s.FLAVOUR, s.REGION
+    s.SALES_DATE, s.PRODUCT, s.FLAVOUR, s.REGION

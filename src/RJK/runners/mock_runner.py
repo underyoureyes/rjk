@@ -1,13 +1,30 @@
 import itertools
+import re
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from RJK.parser.sql_metadata_parser import parse_sql_metadata
 from RJK.runners.base import BaseRunner
 
 _DATE_FMTS = ("%d-%b-%Y", "%Y-%m-%d")
-_TODAY = lambda: datetime.now().strftime("%d-%b-%Y")
+_FMT = "%d-%b-%Y"
+_TODAY = lambda: datetime.now().strftime(_FMT)
+
+_REL_DATE = re.compile(r"^today([+-])(\d+)$", re.IGNORECASE)
+
+
+def _resolve_date_expr(val: str) -> str:
+    """Resolve 'today', 'today-N', 'today+N' to a formatted date string."""
+    s = val.strip()
+    if s.lower() == "today":
+        return datetime.now().strftime(_FMT)
+    m = _REL_DATE.match(s)
+    if m:
+        sign, n = m.group(1), int(m.group(2))
+        delta = timedelta(days=n if sign == "+" else -n)
+        return (datetime.now() + delta).strftime(_FMT)
+    return val
 
 
 def _parse_date(val: str):
@@ -58,8 +75,7 @@ class MockRunner(BaseRunner):
         if not dimensions:
             return [{"message": "no mock data configured", "path": str(sql_path)}]
 
-        today = _TODAY()
-        resolved = {k: [today if str(v).lower() == "today" else v for v in vals]
+        resolved = {k: [_resolve_date_expr(str(v)) for v in vals]
                     for k, vals in dimensions.items()}
 
         rows = []
