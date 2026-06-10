@@ -11,8 +11,8 @@ description: ""
 params: {}
 mock:
   dimensions:
-    SEGMENT: [PRIME, NEAR_PRIME, SUB_PRIME]
-    RISK_BAND: [BAND_1, BAND_2]
+    FLAVOUR: [Vanilla, Chocolate, Strawberry]
+    REGION: [North, South]
   numerics:
     SCORE:
       min: 0.0
@@ -50,11 +50,11 @@ class TestMockRunner:
 
     def test_column_names(self, sql_file):
         rows = MockRunner().run(sql_file, {})
-        assert set(rows[0].keys()) == {"SEGMENT", "RISK_BAND", "SCORE", "COUNT"}
+        assert set(rows[0].keys()) == {"FLAVOUR", "REGION", "SCORE", "COUNT"}
 
     def test_dimensions_are_strings(self, sql_file):
         rows = MockRunner().run(sql_file, {})
-        assert all(isinstance(r["SEGMENT"], str) for r in rows)
+        assert all(isinstance(r["FLAVOUR"], str) for r in rows)
 
     def test_score_in_range(self, sql_file):
         rows = MockRunner().run(sql_file, {})
@@ -73,23 +73,24 @@ class TestMockRunner:
         assert len(rows) == 1
         assert "message" in rows[0]
 
-    def test_seed_agg_gcl_row_count(self):
-        sql_path = Path("reports/consumer/cards/cabm/model_results/agg_gcl_factors.sql")
+    def test_seed_daily_sales_row_count(self):
+        sql_path = Path("reports/frosty_treats/sales/daily_product_sales.sql")
         if not sql_path.exists():
             pytest.skip("seed file not found")
-        rows = MockRunner().run(sql_path, {})
-        assert len(rows) == 27_000
+        rows = MockRunner().run(sql_path, {}, limit=None)
+        assert len(rows) == 672  # 8 FLAVOUR × 6 REGION × 14 SALES_DATE
 
-    def test_seed_vmx_model_row_count(self):
-        sql_path = Path("reports/consumer/cards/cabm/model_results/vmx_gcl_rates_model.sql")
+    def test_seed_daily_sales_has_month_column(self):
+        sql_path = Path("reports/frosty_treats/sales/daily_product_sales.sql")
         if not sql_path.exists():
             pytest.skip("seed file not found")
-        rows = MockRunner().run(sql_path, {})
-        assert len(rows) == 13_500
+        rows = MockRunner().run(sql_path, {}, limit=None)
+        assert "MONTH" in rows[0]
 
-    def test_seed_vmx_ratio_row_count(self):
-        sql_path = Path("reports/consumer/cards/cabm/model_results/vmx_gcl_rates_ratio.sql")
+    def test_seed_daily_close_prices_row_count(self):
+        sql_path = Path("reports/stock_market/prices/daily_close_prices.sql")
         if not sql_path.exists():
             pytest.skip("seed file not found")
-        rows = MockRunner().run(sql_path, {})
-        assert len(rows) == 19_656
+        rows = MockRunner().run(sql_path, {}, limit=None)
+        # 7 tickers × ~522 weekdays in last 730 days; exact count varies by run date
+        assert 3000 < len(rows) < 4200

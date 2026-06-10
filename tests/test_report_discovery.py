@@ -7,12 +7,11 @@ from RJK.discovery.report_discovery import build_report_tree, discover_reports
 
 @pytest.fixture
 def reports_dir(tmp_path):
-    # Create a small fake reports tree
-    r1 = tmp_path / "consumer" / "cards" / "report_a.sql"
+    r1 = tmp_path / "frosty_treats" / "sales" / "report_a.sql"
     r1.parent.mkdir(parents=True)
     r1.write_text('/*\ntitle: "Report A"\ndescription: ""\nparams: {}\n*/\nSELECT 1')
 
-    r2 = tmp_path / "consumer" / "loans" / "report_b.sql"
+    r2 = tmp_path / "stock_market" / "prices" / "report_b.sql"
     r2.parent.mkdir(parents=True)
     r2.write_text('/*\ntitle: "Report B"\ndescription: ""\nparams: {}\n*/\nSELECT 2')
 
@@ -27,8 +26,8 @@ class TestDiscoverReports:
     def test_relative_paths(self, reports_dir):
         reports = discover_reports(reports_dir)
         paths = {r["path"] for r in reports}
-        assert "consumer/cards/report_a.sql" in paths
-        assert "consumer/loans/report_b.sql" in paths
+        assert "frosty_treats/sales/report_a.sql" in paths
+        assert "stock_market/prices/report_b.sql" in paths
 
     def test_titles_extracted(self, reports_dir):
         reports = discover_reports(reports_dir)
@@ -44,25 +43,24 @@ class TestDiscoverReports:
         if not root.exists():
             pytest.skip("reports dir not found (run from project root)")
         reports = discover_reports(root)
-        assert len(reports) == 3
+        assert len(reports) == 2
         paths = {r["path"] for r in reports}
-        assert "consumer/cards/cabm/model_results/agg_gcl_factors.sql" in paths
-        assert "consumer/cards/cabm/model_results/vmx_gcl_rates_model.sql" in paths
-        assert "consumer/cards/cabm/model_results/vmx_gcl_rates_ratio.sql" in paths
+        assert "frosty_treats/sales/daily_product_sales.sql" in paths
+        assert "stock_market/prices/daily_close_prices.sql" in paths
 
 
 class TestBuildReportTree:
     def test_tree_structure(self, reports_dir):
         reports = discover_reports(reports_dir)
         tree = build_report_tree(reports)
-        assert "consumer" in tree
-        assert "_children" in tree["consumer"]
+        assert "frosty_treats" in tree
+        assert "_children" in tree["frosty_treats"]
 
     def test_leaf_is_report(self, reports_dir):
         reports = discover_reports(reports_dir)
         tree = build_report_tree(reports)
-        cards = tree["consumer"]["_children"]["cards"]["_children"]
-        assert cards["report_a.sql"]["_type"] == "report"
+        sales = tree["frosty_treats"]["_children"]["sales"]["_children"]
+        assert sales["report_a.sql"]["_type"] == "report"
 
     def test_empty_list_gives_empty_tree(self):
         assert build_report_tree([]) == {}

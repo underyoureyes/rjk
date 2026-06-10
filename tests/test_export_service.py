@@ -12,8 +12,8 @@ def service():
 
 
 ROWS = [
-    {"SEGMENT": "PRIME", "SCORE": 0.85, "COUNT": 1200},
-    {"SEGMENT": "NEAR_PRIME", "SCORE": 0.62, "COUNT": 800},
+    {"FLAVOUR": "Vanilla", "SCORE": 0.85, "COUNT": 1200},
+    {"FLAVOUR": "Chocolate", "SCORE": 0.62, "COUNT": 800},
 ]
 
 
@@ -27,7 +27,7 @@ class TestToCsv:
 
     def test_header_present(self, service):
         lines = service.to_csv(ROWS).decode().splitlines()
-        assert lines[0] == "SEGMENT,SCORE,COUNT"
+        assert lines[0] == "FLAVOUR,SCORE,COUNT"
 
     def test_row_count(self, service):
         lines = service.to_csv(ROWS).decode().splitlines()
@@ -37,7 +37,7 @@ class TestToCsv:
     def test_values_correct(self, service):
         reader = csv.DictReader(io.StringIO(service.to_csv(ROWS).decode()))
         rows = list(reader)
-        assert rows[0]["SEGMENT"] == "PRIME"
+        assert rows[0]["FLAVOUR"] == "Vanilla"
         assert float(rows[0]["SCORE"]) == pytest.approx(0.85)
 
 
@@ -55,9 +55,9 @@ class TestToExcel:
         import openpyxl
         wb = openpyxl.load_workbook(io.BytesIO(service.to_excel(ROWS)))
         ws = wb.active
-        assert ws.cell(1, 1).value == "SEGMENT"
-        assert ws.cell(2, 1).value == "PRIME"
-        assert ws.cell(3, 1).value == "NEAR_PRIME"
+        assert ws.cell(1, 1).value == "FLAVOUR"
+        assert ws.cell(2, 1).value == "Vanilla"
+        assert ws.cell(3, 1).value == "Chocolate"
 
     def test_sheet_name(self, service):
         import openpyxl

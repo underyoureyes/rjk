@@ -30,10 +30,10 @@ rjk/
 ├── pytest.ini
 ├── .env.example
 ├── reports/                    ← SQL report files
-│   └── consumer/cards/cabm/model_results/
-│       ├── agg_gcl_factors.sql
-│       ├── vmx_gcl_rates_model.sql
-│       └── vmx_gcl_rates_ratio.sql
+│   ├── frosty_treats/sales/
+│   │   └── daily_product_sales.sql
+│   └── stock_market/prices/
+│       └── daily_close_prices.sql
 ├── src/RJK/
 │   ├── config/loader.py        ← Config dataclass, env vars
 │   ├── parser/sql_metadata_parser.py  ← extracts YAML from /* ... */
@@ -71,25 +71,31 @@ description: "What this report shows"
 owner: "Team Name"
 tags: [tag1, tag2]
 params:
-  run_date:
+  sales_date:
     type: date
-    label: "Run Date"
+    label: "Sales Date"
     default: "today"
-  segment:
+  region:
     type: select
-    label: "Segment"
-    options: [ALL, PRIME, NEAR_PRIME]
+    label: "Region"
+    options: [ALL, North, South, East]
     default: ALL
 mock:
   dimensions:
-    SEGMENT: [PRIME, NEAR_PRIME, SUB_PRIME]
-    RISK_BAND: [BAND_1, BAND_2]
+    FLAVOUR: [Vanilla, Chocolate, Strawberry]
+    REGION: [North, South]
+    SALES_DATE:
+      - "today-6"
+      - "today"
+  derived:
+    MONTH:
+      month_start_of: SALES_DATE
   numerics:
-    SCORE: {min: 0.0, max: 1.0, decimals: 4}
-    N: {min: 100, max: 10000, decimals: 0}
+    UNITS_SOLD: {min: 10, max: 500, decimals: 0}
+    REVENUE: {min: 5.00, max: 250.00, decimals: 2}
 */
 
-SELECT ... FROM ... WHERE run_date = :run_date
+SELECT ... FROM ... WHERE sales_date <= :sales_date
 ```
 
 The `mock` block defines the cartesian-product dimensions and random numeric columns used when `MOCK_MODE=true`.
@@ -145,13 +151,12 @@ Tests run from the project root and use the real seed SQL files plus tmp_path fo
 
 ## Seed reports
 
-Three seed reports under `reports/consumer/cards/cabm/model_results/`:
+Two seed reports:
 
 | File | Rows | Key dimensions |
 |---|---|---|
-| `agg_gcl_factors.sql` | 27,000 | SEGMENT(3)×RISK_BAND(5)×FACTOR_NAME(10)×PRODUCT_TYPE(5)×ACCOUNT_AGE_BAND(6)×CHANNEL(6) |
-| `vmx_gcl_rates_model.sql` | 10,800 | MODEL_VERSION(3)×SEGMENT(3)×SCORE_BAND(10)×PRODUCT_TYPE(5)×CHANNEL(6)×RUN_DATE(4) |
-| `vmx_gcl_rates_ratio.sql` | 18,900 | RATIO_TYPE(7)×SEGMENT(3)×PRODUCT_TYPE(6)×REGION(6)×AS_OF_DATE(25 monthly) |
+| `frosty_treats/sales/daily_product_sales.sql` | 672 | FLAVOUR(8)×REGION(6)×SALES_DATE(14 rolling days) |
+| `stock_market/prices/daily_close_prices.sql` | ~3,650 | TICKER(7)×CLOSE_DATE(~522 weekdays, last 2 years) |
 
 ---
 

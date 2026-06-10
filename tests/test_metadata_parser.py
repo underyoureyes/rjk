@@ -9,16 +9,16 @@ SQL_WITH_META = """\
 title: "Test Report"
 description: "A test"
 owner: "Analytics"
-tags: [test, cabm]
+tags: [test, sales]
 params:
   run_date:
     type: date
     label: "Run Date"
     default: "today"
-  segment:
+  flavour:
     type: select
-    label: "Segment"
-    options: [ALL, PRIME]
+    label: "Flavour"
+    options: [ALL, Vanilla, Chocolate]
     default: ALL
 */
 
@@ -57,11 +57,11 @@ class TestParseMetadata:
 
     def test_tags(self, sql_file):
         meta = parse_sql_metadata(sql_file)
-        assert meta["tags"] == ["test", "cabm"]
+        assert meta["tags"] == ["test", "sales"]
 
     def test_params_keys(self, sql_file):
         meta = parse_sql_metadata(sql_file)
-        assert set(meta["params"].keys()) == {"run_date", "segment"}
+        assert set(meta["params"].keys()) == {"run_date", "flavour"}
 
     def test_param_type(self, sql_file):
         meta = parse_sql_metadata(sql_file)
@@ -69,20 +69,20 @@ class TestParseMetadata:
 
     def test_param_options(self, sql_file):
         meta = parse_sql_metadata(sql_file)
-        assert meta["params"]["segment"]["options"] == ["ALL", "PRIME"]
+        assert meta["params"]["flavour"]["options"] == ["ALL", "Vanilla", "Chocolate"]
 
     def test_no_meta_returns_defaults(self, sql_file_no_meta):
         meta = parse_sql_metadata(sql_file_no_meta)
         assert meta["title"] == "bare"
         assert meta["params"] == {}
 
-    def test_seed_file_agg_gcl(self):
-        sql_path = Path("reports/consumer/cards/cabm/model_results/agg_gcl_factors.sql")
+    def test_seed_file_daily_sales(self):
+        sql_path = Path("reports/frosty_treats/sales/daily_product_sales.sql")
         if not sql_path.exists():
             pytest.skip("seed file not found (run from project root)")
         meta = parse_sql_metadata(sql_path)
-        assert meta["title"] == "Aggregate GCL Factors"
-        assert "run_date" in meta["params"]
+        assert meta["title"] == "Ice Cream Daily Sales"
+        assert "sales_date" in meta["params"]
 
 
 class TestExtractSql:
