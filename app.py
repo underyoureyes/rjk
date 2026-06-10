@@ -62,7 +62,8 @@ async def run_report(request: Request):
     path = body.get("path")
     params = body.get("params", {})
     run_by = body.get("run_by", "anonymous")
-    max_rows = int(body.get("max_rows", 2000))
+    max_rows = body.get("max_rows")
+    max_rows = None if max_rows is None else int(max_rows)
     if not path:
         raise HTTPException(status_code=400, detail="path is required")
     try:

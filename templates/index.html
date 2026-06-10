@@ -796,7 +796,8 @@ function collectParams() {
 async function runReport() {
   if (!currentReport) return;
   const params = collectParams();
-  const maxRows = parseInt(document.getElementById('max-rows-input')?.value) || 2000;
+  const _maxRaw = document.getElementById('max-rows-input')?.value.trim();
+  const maxRows = _maxRaw === '' || _maxRaw === undefined ? null : (parseInt(_maxRaw) || 2000);
 
   log.info(`Running ${currentReport.path} with params: ${JSON.stringify(params)}`);
   document.getElementById('row-count-badge').style.display = 'none';
