@@ -26,6 +26,20 @@ CREATE TABLE IF NOT EXISTS audit_signoffs (
     notes          TEXT,
     params         TEXT
 );
+CREATE TABLE IF NOT EXISTS agg_store (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT    UNIQUE NOT NULL,
+    report_path      TEXT    NOT NULL,
+    run_id           INTEGER,
+    group_by         TEXT,
+    value_cols       TEXT,
+    row_count        INTEGER,
+    source_row_count INTEGER,
+    size_bytes       INTEGER,
+    format           TEXT    DEFAULT 'json',
+    storage_path     TEXT,
+    created_at       TEXT    DEFAULT (datetime('now'))
+);
 """
 
 # Safe migrations — each is a no-op if the column already exists
@@ -125,5 +139,46 @@ class AuditService:
             rows = conn.execute(
                 "SELECT * FROM audit_signoffs ORDER BY signed_off_at DESC LIMIT ?",
                 (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def log_agg_persist(
+        self,
+        name: str,
+        report_path: str,
+        run_id: int | None,
+        group_by: list,
+        value_cols: dict,
+        row_count: int,
+        source_row_count: int,
+        size_bytes: int,
+        storage_path: str,
+        fmt: str = "json",
+    ) -> int:
+        with self._connect() as conn:
+            cur = conn.execute(
+                """INSERT INTO agg_store
+                   (name, report_path, run_id, group_by, value_cols,
+                    row_count, source_row_count, size_bytes, format, storage_path)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    name,
+                    report_path,
+                    run_id,
+                    json.dumps(group_by),
+                    json.dumps(value_cols),
+                    row_count,
+                    source_row_count,
+                    size_bytes,
+                    fmt,
+                    storage_path,
+                ),
+            )
+            return cur.lastrowid
+
+    def get_agg_persists(self, limit: int = 100) -> list[dict]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM agg_store ORDER BY id DESC LIMIT ?", (limit,)
             ).fetchall()
             return [dict(r) for r in rows]

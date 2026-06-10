@@ -65,3 +65,43 @@ class TestGetRuns:
 class TestGetSignoffs:
     def test_empty_initially(self, audit):
         assert audit.get_signoffs() == []
+
+
+class TestAggPersist:
+    def _persist(self, audit, name="my_agg"):
+        return audit.log_agg_persist(
+            name=name,
+            report_path="r.sql",
+            run_id=1,
+            group_by=["FLAVOUR"],
+            value_cols={"UNITS_SOLD": "sum"},
+            row_count=2,
+            source_row_count=4,
+            size_bytes=1024,
+            storage_path="/tmp/my_agg.json",
+        )
+
+    def test_returns_integer_id(self, audit):
+        assert isinstance(self._persist(audit), int)
+
+    def test_stored_and_retrievable(self, audit):
+        self._persist(audit, "agg_a")
+        items = audit.get_agg_persists()
+        assert len(items) == 1
+        assert items[0]["name"] == "agg_a"
+        assert items[0]["row_count"] == 2
+        assert items[0]["size_bytes"] == 1024
+
+    def test_duplicate_name_raises(self, audit):
+        self._persist(audit, "dup")
+        with pytest.raises(Exception):
+            self._persist(audit, "dup")
+
+    def test_empty_initially(self, audit):
+        assert audit.get_agg_persists() == []
+
+    def test_most_recent_first(self, audit):
+        self._persist(audit, "first")
+        self._persist(audit, "second")
+        items = audit.get_agg_persists()
+        assert items[0]["name"] == "second"

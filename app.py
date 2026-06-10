@@ -138,6 +138,67 @@ async def export_excel(request: Request):
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+@app.post("/api/aggs/persist")
+async def persist_agg(request: Request):
+    import json as _json
+    body = await request.json()
+    name = (body.get("name") or "").strip()
+    rows = body.get("rows", [])
+    report_path = body.get("report_path", "")
+    run_id = body.get("run_id")
+    group_by = body.get("group_by", [])
+    value_cols = body.get("value_cols", {})
+    source_row_count = body.get("source_row_count", 0)
+    fmt = body.get("format", "json")
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    if not report_path:
+        raise HTTPException(status_code=400, detail="report_path is required")
+    if fmt == "hive":
+        raise HTTPException(status_code=501, detail="Hive persistence is not yet implemented — available on Dash Server only")
+    aggs_dir = Path(config.audit_db_path).parent / "aggs"
+    aggs_dir.mkdir(exist_ok=True)
+    payload = {
+        "name": name,
+        "report_path": report_path,
+        "run_id": run_id,
+        "group_by": group_by,
+        "value_cols": value_cols,
+        "row_count": len(rows),
+        "source_row_count": source_row_count,
+        "rows": rows,
+    }
+    json_str = _json.dumps(payload, default=str)
+    size_bytes = len(json_str.encode("utf-8"))
+    storage_path = str(aggs_dir / f"{name}.json")
+    try:
+        Path(storage_path).write_text(json_str, encoding="utf-8")
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to write file: {exc}")
+    try:
+        store_id = audit.log_agg_persist(
+            name=name,
+            report_path=report_path,
+            run_id=run_id,
+            group_by=group_by,
+            value_cols=value_cols,
+            row_count=len(rows),
+            source_row_count=source_row_count,
+            size_bytes=size_bytes,
+            storage_path=storage_path,
+            fmt=fmt,
+        )
+    except Exception as exc:
+        Path(storage_path).unlink(missing_ok=True)
+        raise HTTPException(status_code=409, detail=str(exc))
+    return {"id": store_id, "name": name, "size_bytes": size_bytes, "path": storage_path}
+
+
+@app.get("/api/aggs/persisted")
+def list_persisted_aggs(limit: int = 100):
+    return {"items": audit.get_agg_persists(limit)}
+
+
 @app.get("/api/about")
 def get_about():
     md_path = Path(__file__).parent / "CLAUDE.md"

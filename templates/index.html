@@ -439,6 +439,9 @@
               <button class="btn btn-sm btn-rjk ms-auto" onclick="showAggsSignoffModal()">
                 <i class="bi bi-pen me-1"></i>Sign Off Aggregation
               </button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="showPersistModal()" title="Persist aggregated data">
+                <i class="bi bi-database-fill-add me-1"></i>Persist
+              </button>
             </div>
           </div>
         </div>
@@ -544,6 +547,58 @@
 
   </div><!-- /content -->
 </div><!-- /main layout -->
+
+<!-- Persist Aggregation Modal -->
+<div class="modal fade" id="persistModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background: var(--rjk-blue); color:#fff;">
+        <h5 class="modal-title"><i class="bi bi-database-fill-add me-2"></i>Persist Aggregation</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert d-flex align-items-center gap-2 mb-3" id="persist-size-alert">
+          <i class="bi bi-rulers"></i>
+          <div>Estimated size: <strong id="persist-size-estimate">—</strong></div>
+          <span class="ms-auto badge" id="persist-recommendation"></span>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Unique Name</label>
+          <input type="text" class="form-control font-monospace" id="persist-name-input" />
+          <div class="form-text">Stored in the audit DB — used to retrieve this dataset later in the workflow.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Storage Format</label>
+          <div class="d-flex gap-4">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="persist-format" id="persist-fmt-json" value="json" checked>
+              <label class="form-check-label" for="persist-fmt-json">
+                <strong>JSON File</strong> <span class="text-muted small">— always available</span>
+              </label>
+            </div>
+            <div class="form-check" title="Available on Dash Server only — to be developed">
+              <input class="form-check-input" type="radio" name="persist-format" id="persist-fmt-hive" value="hive" disabled>
+              <label class="form-check-label text-muted" for="persist-fmt-hive">
+                <strong>Hive Table</strong> <span class="small">— Dash Server only <em>(to be developed)</em></span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="mb-0">
+          <label class="form-label fw-semibold">Contents</label>
+          <pre id="persist-summary" class="font-monospace small text-muted mb-0"
+               style="background:var(--grid-bg);padding:.5rem .75rem;border-radius:4px;white-space:pre-wrap;"></pre>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-rjk" onclick="submitPersist()">
+          <i class="bi bi-database-fill-add me-1"></i>Save
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Sign-off Modal -->
 <div class="modal fade" id="signoffModal" tabindex="-1">
@@ -1206,6 +1261,95 @@ async function submitSignoff() {
   } catch (e) {
     log.error('Sign-off failed: ' + e.message);
     alert('Sign-off failed: ' + e.message);
+  }
+}
+
+// ============================================================
+// Persist Aggregation
+// ============================================================
+let _persistModal = null;
+let _persistRows   = null;
+
+function _fmtBytes(b) {
+  if (b < 1024)        return `${b} B`;
+  if (b < 1048576)     return `${(b / 1024).toFixed(1)} KB`;
+  if (b < 1073741824)  return `${(b / 1048576).toFixed(2)} MB`;
+  return `${(b / 1073741824).toFixed(2)} GB`;
+}
+
+function showPersistModal() {
+  if (!lastAggsResult || !aggsGridApi) return;
+
+  _persistRows = _collectGridRows(aggsGridApi);
+  const jsonStr = JSON.stringify(_persistRows);
+  const sizeBytes = new TextEncoder().encode(jsonStr).length;
+  const sizeMB = sizeBytes / 1048576;
+
+  let alertClass, recText, recClass;
+  if (sizeMB < 10) {
+    alertClass = 'alert-success'; recText = 'JSON recommended'; recClass = 'bg-success';
+  } else if (sizeMB < 100) {
+    alertClass = 'alert-warning'; recText = 'JSON — manageable'; recClass = 'bg-warning text-dark';
+  } else {
+    alertClass = 'alert-danger';  recText = 'Large — Hive recommended for production'; recClass = 'bg-danger';
+  }
+
+  const alert = document.getElementById('persist-size-alert');
+  alert.className = `alert d-flex align-items-center gap-2 mb-3 ${alertClass}`;
+  document.getElementById('persist-size-estimate').textContent =
+    `${_fmtBytes(sizeBytes)} (${_persistRows.length.toLocaleString()} rows)`;
+  const rec = document.getElementById('persist-recommendation');
+  rec.textContent = recText;
+  rec.className = `ms-auto badge ${recClass}`;
+
+  const stem = currentReport.path.split('/').pop().replace('.sql', '');
+  const ts = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 15);
+  document.getElementById('persist-name-input').value = `${stem}_${ts}`;
+
+  document.getElementById('persist-summary').textContent = [
+    `report:        ${currentReport.path}`,
+    `run_id:        ${lastRunResult.run_id}`,
+    `group_by:      [${lastAggsResult.group_by.join(', ')}]`,
+    `value_cols:    ${Object.entries(lastAggsResult.value_cols).map(([c,f]) => `${c}→${f}`).join(', ')}`,
+    `agg rows:      ${_persistRows.length.toLocaleString()}`,
+    `source rows:   ${lastAggsResult.source_row_count.toLocaleString()}`,
+  ].join('\n');
+
+  document.getElementById('persist-fmt-json').checked = true;
+  if (!_persistModal) _persistModal = new bootstrap.Modal(document.getElementById('persistModal'));
+  _persistModal.show();
+}
+
+async function submitPersist() {
+  const name = document.getElementById('persist-name-input').value.trim();
+  if (!name) { alert('Please enter a name'); return; }
+  const fmt = document.querySelector('input[name="persist-format"]:checked').value;
+
+  const payload = {
+    name, format: fmt,
+    rows: _persistRows,
+    report_path: currentReport.path,
+    run_id: lastRunResult.run_id,
+    group_by: lastAggsResult.group_by,
+    value_cols: lastAggsResult.value_cols,
+    row_count: _persistRows.length,
+    source_row_count: lastAggsResult.source_row_count,
+  };
+
+  log.info(`Persisting aggregation "${name}" as ${fmt}…`);
+  try {
+    const res = await fetch('/api/aggs/persist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    const data = await res.json();
+    _persistModal.hide();
+    log.success(`Saved "${data.name}" (${_fmtBytes(data.size_bytes)}) — store ID ${data.id}`);
+  } catch (e) {
+    log.error('Persist failed: ' + e.message);
+    alert('Persist failed: ' + e.message);
   }
 }
 
