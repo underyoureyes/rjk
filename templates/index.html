@@ -173,6 +173,34 @@
   }
   .grid-outer { border: 1px solid var(--border); border-top: none; border-radius: 0 0 6px 6px; overflow: hidden; }
 
+  /* Richer ag-Grid styling */
+  .ag-theme-alpine {
+    --ag-header-background-color: #003087;
+    --ag-header-foreground-color: #ffffff;
+    --ag-header-font-weight: 700;
+    --ag-header-height: 38px;
+    --ag-row-height: 32px;
+    --ag-font-size: 13px;
+    --ag-odd-row-background-color: var(--bg-panel);
+    --ag-row-hover-color: var(--bg-hover);
+    --ag-border-color: var(--border);
+    --ag-cell-horizontal-border: solid var(--border);
+    --ag-range-selection-border-color: #003087;
+  }
+  .ag-theme-alpine .ag-header-cell-text { font-weight: 700; letter-spacing: .03em; font-size: .8rem; }
+  .ag-theme-alpine .ag-row-even { background-color: var(--bg-row-alt, rgba(0,48,135,.04)); }
+  .ag-theme-alpine .ag-cell { font-size: .82rem; }
+  [data-theme="darcula"] .ag-theme-alpine,
+  [data-theme="dark"] .ag-theme-alpine,
+  [data-theme="high-contrast"] .ag-theme-alpine {
+    --ag-header-background-color: #1a3a6b;
+    --ag-background-color: var(--bg-panel);
+    --ag-foreground-color: var(--text-primary);
+    --ag-odd-row-background-color: var(--bg-panel);
+    --ag-row-hover-color: var(--bg-hover);
+    --ag-border-color: var(--border);
+  }
+
   /* Status badge */
   .row-count-badge {
     font-size: .75rem; padding: 3px 10px; border-radius: 20px; font-weight: 600;
@@ -245,7 +273,12 @@
   <!-- Sidebar -->
   <div id="sidebar-wrap">
     <div id="sidebar">
-      <div class="sidebar-header">Reports</div>
+      <div class="sidebar-header d-flex align-items-center justify-content-between pe-2">
+      <span>Reports</span>
+      <button class="btn btn-rjk btn-sm" style="padding:1px 7px;font-size:.7rem;" onclick="showCreateReportModal()" title="New report">
+        <i class="bi bi-plus-lg"></i>
+      </button>
+    </div>
       <div id="report-tree">
         <div class="empty-state py-4"><i class="bi bi-hourglass-split me-1"></i>Loading…</div>
       </div>
@@ -321,18 +354,27 @@
                 <input type="text" class="form-control" id="grid-search" placeholder="Search…"
                        oninput="applyGridSearch(this.value)" disabled>
               </div>
-              <button class="btn btn-sm btn-warning" onclick="exportCsv()" id="btn-csv" disabled>
-                <i class="bi bi-filetype-csv me-1"></i>CSV
-              </button>
-              <button class="btn btn-sm btn-success" onclick="exportExcel()" id="btn-excel" disabled>
-                <i class="bi bi-file-earmark-excel me-1"></i>Excel
-              </button>
-              <button class="btn btn-sm btn-danger" onclick="exportPdf()" id="btn-pdf" disabled>
-                <i class="bi bi-file-earmark-pdf me-1"></i>PDF
-              </button>
-              <button class="btn btn-sm" style="background:#c05621;color:#fff;" onclick="exportPpt()" id="btn-ppt" disabled>
-                <i class="bi bi-file-earmark-slides me-1"></i>PPT
-              </button>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-secondary dropdown-toggle" id="btn-export"
+                        data-bs-toggle="dropdown" data-bs-auto-close="true" disabled>
+                  <i class="bi bi-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><button class="dropdown-item small" onclick="exportCsv()">
+                    <i class="bi bi-filetype-csv me-2 text-warning"></i>CSV
+                  </button></li>
+                  <li><button class="dropdown-item small" onclick="exportExcel()">
+                    <i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel
+                  </button></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><button class="dropdown-item small" onclick="exportPdf()">
+                    <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF
+                  </button></li>
+                  <li><button class="dropdown-item small" onclick="exportPpt()">
+                    <i class="bi bi-file-earmark-slides me-2" style="color:#c05621;"></i>PowerPoint
+                  </button></li>
+                </ul>
+              </div>
               <div class="dropdown">
                 <button class="btn btn-sm btn-info dropdown-toggle" type="button" id="btn-cols"
                         data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" disabled>
@@ -980,10 +1022,7 @@ async function selectReport(report) {
   if (cached) {
     lastRunResult = cached;
     renderResultsGrid(cached.rows);
-    document.getElementById('btn-csv').disabled = false;
-    document.getElementById('btn-excel').disabled = false;
-    document.getElementById('btn-pdf').disabled = false;
-    document.getElementById('btn-ppt').disabled = false;
+    document.getElementById('btn-export').disabled = false;
   } else {
     lastRunResult = null;
     lastAggsResult = null;
@@ -996,10 +1035,7 @@ async function selectReport(report) {
     }
     document.getElementById('row-count-badge').style.display = 'none';
     document.getElementById('run-id-badge').style.display = 'none';
-    document.getElementById('btn-csv').disabled = true;
-    document.getElementById('btn-excel').disabled = true;
-    document.getElementById('btn-pdf').disabled = true;
-    document.getElementById('btn-ppt').disabled = true;
+    document.getElementById('btn-export').disabled = true;
     document.getElementById('btn-cols').disabled = true;
     document.getElementById('col-chooser-list').innerHTML = '';
     const srch = document.getElementById('grid-search');
@@ -1012,6 +1048,8 @@ async function selectReport(report) {
   try {
     const res = await fetch(`/api/reports/meta?path=${encodeURIComponent(report.path)}`);
     currentMeta = await res.json();
+    currentReport.meta = currentMeta;
+    _checkOdbcRequired(currentMeta);
     renderParamToolbar(currentMeta);
     log.debug(`Params: ${Object.keys(currentMeta.params || {}).join(', ') || 'none'}`);
   } catch (e) {
@@ -1078,18 +1116,16 @@ function collectParams() {
 // ============================================================
 // Run report
 // ============================================================
-async function runReport() {
+async function runReport(odbcOverrides) {
   if (!currentReport) return;
+  if (_reportNeedsOdbc && !odbcOverrides) { showOdbcModal(); return; }
   const params = collectParams();
   const _maxRaw = document.getElementById('max-rows-input')?.value.trim();
   const maxRows = _maxRaw === '' || _maxRaw === undefined ? null : (parseInt(_maxRaw) || 2000);
 
   log.info(`Running ${currentReport.path} with params: ${JSON.stringify(params)}`);
   document.getElementById('row-count-badge').style.display = 'none';
-  document.getElementById('btn-csv').disabled = true;
-  document.getElementById('btn-excel').disabled = true;
-  document.getElementById('btn-pdf').disabled = true;
-  document.getElementById('btn-ppt').disabled = true;
+  document.getElementById('btn-export').disabled = true;
   document.getElementById('btn-cols').disabled = true;
 
   const runBtn = document.querySelector('#param-toolbar button.btn-rjk');
@@ -1099,7 +1135,7 @@ async function runReport() {
     const res = await fetch('/api/reports/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: currentReport.path, params, max_rows: maxRows })
+      body: JSON.stringify({ path: currentReport.path, params, max_rows: maxRows, ...(odbcOverrides || {}) })
     });
     if (!res.ok) {
       const err = await res.json();
@@ -1112,10 +1148,7 @@ async function runReport() {
     log.success(`Run #${lastRunResult.run_id} complete — ${lastRunResult.row_count.toLocaleString()} rows`);
     renderResultsGrid(lastRunResult.rows);
 
-    document.getElementById('btn-csv').disabled = false;
-    document.getElementById('btn-excel').disabled = false;
-    document.getElementById('btn-pdf').disabled = false;
-    document.getElementById('btn-ppt').disabled = false;
+    document.getElementById('btn-export').disabled = false;
 
     loadAudit();
   } catch (e) {
@@ -1313,6 +1346,116 @@ function _populateAuditColChooser(api, listId) {
 function auditToggleCol(apiKey, colKey, visible) {
   const api = window[apiKey];
   if (api) api.applyColumnState({ state: [{ colId: colKey, hide: !visible }] });
+}
+
+// ============================================================
+// Create Report
+// ============================================================
+let _createReportModal = null;
+
+function showCreateReportModal() {
+  if (!_createReportModal) _createReportModal = new bootstrap.Modal(document.getElementById('createReportModal'));
+  ['cr-folder','cr-name','cr-title','cr-desc','cr-sql','cr-conn'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  const titleEl = document.getElementById('cr-title');
+  delete titleEl.dataset.manualEdit;
+  document.getElementById('cr-params-info').textContent = '';
+  document.getElementById('cr-error').style.display = 'none';
+  _createReportModal.show();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const t = document.getElementById('cr-title');
+  if (t) t.addEventListener('input', () => { t.dataset.manualEdit = '1'; });
+});
+
+function crAutoTitle() {
+  const name = document.getElementById('cr-name').value;
+  const titleEl = document.getElementById('cr-title');
+  if (!titleEl.dataset.manualEdit)
+    titleEl.value = name.replace(/[_\-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function crDetectParams() {
+  const sql = document.getElementById('cr-sql').value;
+  const params = [...new Set((sql.match(/:([a-zA-Z_]\w*)/g) || []).map(p => p.slice(1)))];
+  const el = document.getElementById('cr-params-info');
+  el.innerHTML = params.length
+    ? `<i class="bi bi-braces me-1"></i>Detected params: ${params.map(p => `<code>${p}</code>`).join(', ')} — added to toolbar automatically.`
+    : '';
+}
+
+async function createReport() {
+  const folder = document.getElementById('cr-folder').value.trim();
+  const name   = document.getElementById('cr-name').value.trim();
+  const title  = document.getElementById('cr-title').value.trim();
+  const desc   = document.getElementById('cr-desc').value.trim();
+  const sql    = document.getElementById('cr-sql').value.trim();
+  const conn   = document.getElementById('cr-conn').value.trim();
+  const errEl  = document.getElementById('cr-error');
+  errEl.style.display = 'none';
+  if (!folder) { errEl.textContent = 'Folder path is required.'; errEl.style.display = ''; return; }
+  if (!name)   { errEl.textContent = 'File name is required.';   errEl.style.display = ''; return; }
+  if (!sql)    { errEl.textContent = 'SQL is required.';          errEl.style.display = ''; return; }
+  log.info('Creating report…');
+  try {
+    const res = await fetch('/api/reports/create', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder, name, title: title || name, description: desc, conn_string: conn, sql }),
+    });
+    if (!res.ok) { const e = await res.json(); errEl.textContent = e.detail || res.statusText; errEl.style.display = ''; return; }
+    const data = await res.json();
+    _createReportModal.hide();
+    log.success(`Report created: ${data.path}`);
+    await loadReports();
+    const el = document.querySelector(`.tree-report[data-path="${data.path}"]`);
+    if (el) el.click();
+  } catch (e) { errEl.textContent = 'Failed: ' + e.message; errEl.style.display = ''; }
+}
+
+// ============================================================
+// ODBC Credentials
+// ============================================================
+let _odbcModal = null;
+let _reportNeedsOdbc = false;
+
+function _checkOdbcRequired(meta) {
+  _reportNeedsOdbc = !!(meta?.connection?.conn_string);
+}
+
+function showOdbcModal() {
+  if (!_odbcModal) _odbcModal = new bootstrap.Modal(document.getElementById('odbcModal'));
+  document.getElementById('odbc-conn-display').value = currentReport?.meta?.connection?.conn_string || '';
+  document.getElementById('odbc-user-input').value = '';
+  document.getElementById('odbc-pwd-input').value = '';
+  document.getElementById('odbc-test-result').textContent = '';
+  _odbcModal.show();
+}
+
+async function testOdbcConnection() {
+  const conn = document.getElementById('odbc-conn-display').value.trim();
+  const user = document.getElementById('odbc-user-input').value.trim();
+  const pwd  = document.getElementById('odbc-pwd-input').value;
+  const el   = document.getElementById('odbc-test-result');
+  el.textContent = 'Testing…'; el.className = 'small mt-2 text-muted';
+  try {
+    const res = await fetch('/api/reports/test-connection', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conn_string: conn, username: user, password: pwd }),
+    });
+    const d = await res.json();
+    if (res.ok) { el.textContent = '✓ ' + d.message; el.className = 'small mt-2 text-success fw-semibold'; }
+    else        { el.textContent = '✗ ' + (d.detail || res.statusText); el.className = 'small mt-2 text-danger'; }
+  } catch (e) { el.textContent = '✗ ' + e.message; el.className = 'small mt-2 text-danger'; }
+}
+
+async function runWithOdbc() {
+  const conn = document.getElementById('odbc-conn-display').value.trim();
+  const user = document.getElementById('odbc-user-input').value.trim();
+  const pwd  = document.getElementById('odbc-pwd-input').value;
+  if (_odbcModal) _odbcModal.hide();
+  await runReport({ conn_string: conn, username: user, password: pwd });
 }
 
 function exportCsv() {
@@ -2218,5 +2361,107 @@ function initEmptyAuditGrids() {
   });
 }
 </script>
+
+<!-- ============================================================
+     Create Report Modal
+============================================================ -->
+<div class="modal fade" id="createReportModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>New Report</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2 mb-2">
+          <div class="col-5">
+            <label class="form-label fw-semibold small">Folder Path <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-sm" id="cr-folder" placeholder="e.g. demo/my_company/sales">
+            <div class="form-text" style="font-size:.68rem;">Sub-path within reports/ — use / for nesting</div>
+          </div>
+          <div class="col-3">
+            <label class="form-label fw-semibold small">File Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-sm" id="cr-name" placeholder="e.g. monthly_sales" oninput="crAutoTitle()">
+            <div class="form-text" style="font-size:.68rem;">.sql appended automatically</div>
+          </div>
+          <div class="col-4">
+            <label class="form-label fw-semibold small">Display Title</label>
+            <input type="text" class="form-control form-control-sm" id="cr-title" placeholder="Auto">
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold small">Description</label>
+          <input type="text" class="form-control form-control-sm" id="cr-desc" placeholder="What this report shows (optional)">
+        </div>
+        <div class="mb-1">
+          <label class="form-label fw-semibold small">SQL <span class="text-danger">*</span></label>
+          <textarea class="form-control font-monospace" id="cr-sql" rows="12" style="font-size:.78rem;resize:vertical;"
+            placeholder="Paste your ANSI SQL here…&#10;&#10;Use :param_name for parameters, e.g.&#10;  WHERE report_date = :report_date"
+            oninput="crDetectParams()"></textarea>
+        </div>
+        <div id="cr-params-info" class="form-text mb-2" style="font-size:.7rem;min-height:1.2rem;"></div>
+        <details>
+          <summary class="fw-semibold small" style="cursor:pointer;user-select:none;">
+            <i class="bi bi-database me-1"></i>Database Connection
+            <span class="text-muted fw-normal"> (optional — required for live data)</span>
+          </summary>
+          <div class="mt-2">
+            <label class="form-label small">ODBC Connection String</label>
+            <input type="text" class="form-control form-control-sm font-monospace" id="cr-conn"
+                   placeholder="Driver={SQL Server};Server=host;Database=mydb;">
+            <div class="form-text" style="font-size:.68rem;">Stored in the report file. Password is never stored — you will be prompted at run time.</div>
+          </div>
+        </details>
+      </div>
+      <div class="modal-footer">
+        <div id="cr-error" class="text-danger small me-auto" style="display:none;"></div>
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-rjk btn-sm" onclick="createReport()">
+          <i class="bi bi-plus-circle me-1"></i>Create Report
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     ODBC Credentials Modal
+============================================================ -->
+<div class="modal fade" id="odbcModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-database-lock me-2"></i>Database Credentials</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-3">This report connects directly to a database. Enter your credentials below.</p>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Connection String</label>
+          <input type="text" class="form-control form-control-sm font-monospace" id="odbc-conn-display" readonly>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Username</label>
+          <input type="text" class="form-control form-control-sm" id="odbc-user-input" autocomplete="username">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Password</label>
+          <input type="password" class="form-control form-control-sm" id="odbc-pwd-input" autocomplete="current-password">
+        </div>
+        <div id="odbc-test-result" class="small mt-2" style="min-height:1.4rem;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-outline-secondary" onclick="testOdbcConnection()">
+          <i class="bi bi-plug me-1"></i>Test Connection
+        </button>
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-rjk btn-sm" onclick="runWithOdbc()">
+          <i class="bi bi-play-fill me-1"></i>Run Report
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

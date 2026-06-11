@@ -1,6 +1,8 @@
 import io
 import json
+import re
 import sys
+import yaml
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -61,16 +63,22 @@ def get_report_meta(path: str):
 
 @app.post("/api/reports/run")
 async def run_report(request: Request):
-    body = await request.json()
-    path = body.get("path")
-    params = body.get("params", {})
-    run_by = body.get("run_by", "anonymous")
-    max_rows = body.get("max_rows")
+    body        = await request.json()
+    path        = body.get("path")
+    params      = body.get("params", {})
+    run_by      = body.get("run_by", "anonymous")
+    max_rows    = body.get("max_rows")
+    conn_string = body.get("conn_string") or None
+    username    = body.get("username") or None
+    password    = body.get("password") or None
     max_rows = None if max_rows is None else int(max_rows)
     if not path:
         raise HTTPException(status_code=400, detail="path is required")
     try:
-        result = report_service.run_report(path, params, run_by, max_rows)
+        result = report_service.run_report(
+            path, params, run_by, max_rows,
+            conn_string=conn_string, username=username, password=password,
+        )
         return result
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
@@ -175,6 +183,83 @@ async def export_ppt(request: Request):
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.post("/api/reports/create")
+async def create_report(request: Request):
+    body        = await request.json()
+    folder      = (body.get("folder") or "").strip().strip("/")
+    name        = (body.get("name") or "").strip()
+    title       = (body.get("title") or name).strip()
+    description = (body.get("description") or "").strip()
+    owner       = (body.get("owner") or "").strip()
+    conn_string = (body.get("conn_string") or "").strip()
+    sql_text    = (body.get("sql") or "").strip()
+
+    if not folder:
+        raise HTTPException(status_code=400, detail="folder is required")
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    if not sql_text:
+        raise HTTPException(status_code=400, detail="sql is required")
+
+    safe_name = re.sub(r"[^\w\-]", "_", name).lower()
+    if not safe_name.endswith(".sql"):
+        safe_name += ".sql"
+
+    report_dir  = config.reports_root / folder
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_file = report_dir / safe_name
+    if report_file.exists():
+        raise HTTPException(status_code=409, detail=f"Report already exists: {folder}/{safe_name}")
+
+    detected_params = list(dict.fromkeys(re.findall(r":([a-zA-Z_]\w*)", sql_text)))
+
+    meta: dict = {"title": title}
+    if description:
+        meta["description"] = description
+    if owner:
+        meta["owner"] = owner
+    if conn_string:
+        meta["connection"] = {"conn_string": conn_string}
+    if detected_params:
+        meta["params"] = {
+            p: {"type": "text", "label": p.replace("_", " ").title(), "default": ""}
+            for p in detected_params
+        }
+
+    yaml_block   = yaml.dump(meta, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    file_content = f"/*\n{yaml_block}*/\n\n{sql_text}\n"
+    report_file.write_text(file_content, encoding="utf-8")
+
+    report_path = str(Path(folder) / safe_name).replace("\\", "/")
+    logger.info("Created new report: %s", report_path)
+    return {"path": report_path, "filename": safe_name, "folder": folder}
+
+
+@app.post("/api/reports/test-connection")
+async def test_odbc_connection(request: Request):
+    body        = await request.json()
+    conn_string = (body.get("conn_string") or "").strip()
+    username    = (body.get("username") or "").strip()
+    password    = (body.get("password") or "").strip()
+    if not conn_string:
+        raise HTTPException(status_code=400, detail="conn_string is required")
+    try:
+        import pyodbc
+    except ImportError:
+        raise HTTPException(status_code=500, detail="pyodbc is not installed on this server")
+    try:
+        kwargs: dict = {}
+        if username:
+            kwargs["uid"] = username
+        if password:
+            kwargs["pwd"] = password
+        conn = pyodbc.connect(conn_string, timeout=10, **kwargs)
+        conn.close()
+        return {"status": "ok", "message": "Connection successful"}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Connection failed: {exc}")
 
 
 @app.get("/api/config/persist-options")

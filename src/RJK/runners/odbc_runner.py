@@ -10,9 +10,17 @@ class OdbcRunner(BaseRunner):
     def __init__(self, conn_string: str) -> None:
         self.conn_string = conn_string
 
-    def run(self, sql_path: Path, params: dict, limit: int | None = 2000) -> list[dict]:
+    def run(
+        self,
+        sql_path: Path,
+        params: dict,
+        limit: int | None = 2000,
+        conn_string: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+    ) -> list[dict]:
         try:
-            import pyodbc  # optional dependency
+            import pyodbc
         except ImportError as exc:
             raise RuntimeError("pyodbc is not installed; install it or set MOCK_MODE=true") from exc
 
@@ -25,7 +33,14 @@ class OdbcRunner(BaseRunner):
         if limit is not None:
             sql += f"\nLIMIT {int(limit)}"
 
-        conn = pyodbc.connect(self.conn_string)
+        cs = conn_string or self.conn_string
+        kwargs: dict = {}
+        if username:
+            kwargs["uid"] = username
+        if password:
+            kwargs["pwd"] = password
+
+        conn = pyodbc.connect(cs, **kwargs)
         try:
             cursor = conn.cursor()
             cursor.execute(sql)
