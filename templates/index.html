@@ -95,14 +95,30 @@
   }
 
   /* Sidebar */
+  #sidebar-wrap {
+    display: flex; flex-shrink: 0;
+    position: relative;
+  }
   #sidebar {
-    width: 280px; min-width: 280px;
+    width: 260px; min-width: 260px;
     background: var(--bg-panel); border-right: 1px solid var(--border);
-    overflow-y: auto; height: calc(100vh - 108px);
+    overflow-y: auto; height: calc(100vh - 56px);
     padding: 12px 0;
-    transition: width .2s, min-width .2s;
+    transition: width .2s, min-width .2s, padding .2s;
   }
   #sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; padding: 0; }
+  #sidebar-toggle {
+    position: absolute; right: -14px; top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    width: 18px; height: 44px;
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-left: none; border-radius: 0 6px 6px 0;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); font-size: .75rem;
+    transition: background .15s;
+  }
+  #sidebar-toggle:hover { background: var(--bg-hover); color: var(--text-primary); }
   .sidebar-header {
     font-size: .72rem; font-weight: 700; letter-spacing: .1em;
     color: var(--text-muted); text-transform: uppercase;
@@ -122,6 +138,11 @@
     padding: 5px 12px 5px 28px;
     font-size: .82rem; color: var(--text-label); cursor: pointer;
     border-left: 3px solid transparent;
+    min-width: 0;
+  }
+  .tree-report-label {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    flex: 1; min-width: 0;
   }
   .tree-report:hover { background: var(--bg-hover); }
   .tree-report.active { background: var(--bg-active); border-left-color: var(--rjk-blue); color: var(--rjk-blue); font-weight: 600; }
@@ -222,11 +243,16 @@
 <div class="d-flex" style="height: calc(100vh - 56px);">
 
   <!-- Sidebar -->
-  <div id="sidebar">
-    <div class="sidebar-header">Reports</div>
-    <div id="report-tree">
-      <div class="empty-state py-4"><i class="bi bi-hourglass-split me-1"></i>Loading…</div>
+  <div id="sidebar-wrap">
+    <div id="sidebar">
+      <div class="sidebar-header">Reports</div>
+      <div id="report-tree">
+        <div class="empty-state py-4"><i class="bi bi-hourglass-split me-1"></i>Loading…</div>
+      </div>
     </div>
+    <button id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+      <i class="bi bi-chevron-left" id="sidebar-toggle-icon"></i>
+    </button>
   </div>
 
   <!-- Content -->
@@ -806,15 +832,32 @@ function switchTab(tabId) {
     document.getElementById(id).style.display = (id === tabId) ? '' : 'none';
   });
 
-  // Hide sidebar on Logs tab
+  // Hide sidebar on Logs/Audit; restore user preference elsewhere
   const sidebar = document.getElementById('sidebar');
-  if (tabId === 'tab-logs') {
+  if (tabId === 'tab-logs' || tabId === 'tab-audit') {
     sidebar.classList.add('collapsed');
+    document.getElementById('sidebar-toggle').style.display = 'none';
   } else {
-    sidebar.classList.remove('collapsed');
+    if (!_sidebarUserCollapsed) sidebar.classList.remove('collapsed');
+    document.getElementById('sidebar-toggle').style.display = '';
+    _updateToggleIcon();
   }
 
   if (tabId === 'tab-audit') loadAudit();
+}
+
+let _sidebarUserCollapsed = false;
+
+function toggleSidebar() {
+  _sidebarUserCollapsed = !_sidebarUserCollapsed;
+  const sidebar = document.getElementById('sidebar');
+  sidebar.classList.toggle('collapsed', _sidebarUserCollapsed);
+  _updateToggleIcon();
+}
+
+function _updateToggleIcon() {
+  const icon = document.getElementById('sidebar-toggle-icon');
+  icon.className = _sidebarUserCollapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-left';
 }
 
 document.querySelectorAll('[data-tab]').forEach(a => {
@@ -866,7 +909,8 @@ function renderTree(node, container, depth) {
       const el = document.createElement('div');
       el.className = 'tree-report';
       el.style.paddingLeft = (28 + depth * 12) + 'px';
-      el.innerHTML = `<i class="bi bi-file-earmark-text text-muted"></i><span>${val.title || key.replace('.sql','')}</span>`;
+      const label = val.title || key.replace('.sql','');
+      el.innerHTML = `<i class="bi bi-file-earmark-text text-muted flex-shrink-0"></i><span class="tree-report-label" title="${label}">${label}</span>`;
       el.dataset.path = val.path;
       el.addEventListener('click', () => selectReport(val));
 
