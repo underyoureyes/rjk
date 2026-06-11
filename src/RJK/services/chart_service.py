@@ -64,6 +64,7 @@ class ChartService:
         y: str,
         color: Optional[str],
         title: str,
+        show_legend: bool = False,
     ) -> dict:
         if chart_type not in SUPPORTED_CHART_TYPES:
             raise ValueError(f"chart_type must be one of {SUPPORTED_CHART_TYPES}")
@@ -99,6 +100,7 @@ class ChartService:
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
             margin=dict(l=40, r=20, t=60, b=40),
+            showlegend=show_legend,
         )
         return json.loads(fig.to_json())
 

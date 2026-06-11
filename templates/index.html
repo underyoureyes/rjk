@@ -301,6 +301,12 @@
               <button class="btn btn-sm btn-success" onclick="exportExcel()" id="btn-excel" disabled>
                 <i class="bi bi-file-earmark-excel me-1"></i>Excel
               </button>
+              <button class="btn btn-sm btn-danger" onclick="exportPdf()" id="btn-pdf" disabled>
+                <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+              </button>
+              <button class="btn btn-sm" style="background:#c05621;color:#fff;" onclick="exportPpt()" id="btn-ppt" disabled>
+                <i class="bi bi-file-earmark-slides me-1"></i>PPT
+              </button>
               <div class="dropdown">
                 <button class="btn btn-sm btn-info dropdown-toggle" type="button" id="btn-cols"
                         data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" disabled>
@@ -489,6 +495,11 @@
               <div>
                 <label class="form-label fw-semibold small mb-1">Chart Title</label>
                 <input type="text" class="form-control form-control-sm" id="rpt-title" placeholder="Auto">
+              </div>
+
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="rpt-show-legend">
+                <label class="form-check-label small" for="rpt-show-legend">Show Legend</label>
               </div>
 
               <button class="btn btn-rjk btn-sm mt-auto" onclick="generateChart()">
@@ -923,6 +934,8 @@ async function selectReport(report) {
     renderResultsGrid(cached.rows);
     document.getElementById('btn-csv').disabled = false;
     document.getElementById('btn-excel').disabled = false;
+    document.getElementById('btn-pdf').disabled = false;
+    document.getElementById('btn-ppt').disabled = false;
   } else {
     lastRunResult = null;
     lastAggsResult = null;
@@ -937,6 +950,8 @@ async function selectReport(report) {
     document.getElementById('run-id-badge').style.display = 'none';
     document.getElementById('btn-csv').disabled = true;
     document.getElementById('btn-excel').disabled = true;
+    document.getElementById('btn-pdf').disabled = true;
+    document.getElementById('btn-ppt').disabled = true;
     document.getElementById('btn-cols').disabled = true;
     document.getElementById('col-chooser-list').innerHTML = '';
     const srch = document.getElementById('grid-search');
@@ -1027,6 +1042,8 @@ async function runReport() {
   document.getElementById('row-count-badge').style.display = 'none';
   document.getElementById('btn-csv').disabled = true;
   document.getElementById('btn-excel').disabled = true;
+  document.getElementById('btn-pdf').disabled = true;
+  document.getElementById('btn-ppt').disabled = true;
   document.getElementById('btn-cols').disabled = true;
 
   const runBtn = document.querySelector('#param-toolbar button.btn-rjk');
@@ -1051,6 +1068,8 @@ async function runReport() {
 
     document.getElementById('btn-csv').disabled = false;
     document.getElementById('btn-excel').disabled = false;
+    document.getElementById('btn-pdf').disabled = false;
+    document.getElementById('btn-ppt').disabled = false;
 
     loadAudit();
   } catch (e) {
@@ -1261,6 +1280,52 @@ function exportExcel() {
     XLSX.writeFile(wb, sheetName + '.xlsx');
     log.success(`Excel downloaded (${rows.length.toLocaleString()} rows)`);
   } catch (e) { log.error('Excel export failed: ' + e.message); }
+}
+
+async function exportPdf() {
+  if (!currentReport || !lastRunResult) return;
+  const rows = _getExportRows();
+  if (!rows.length) { log.warn('No rows to export'); return; }
+  const filename = currentReport.path.split('/').pop().replace('.sql', '');
+  const title    = currentReport.meta?.title || filename;
+  const params   = lastRunResult._params
+    ? Object.entries(lastRunResult._params).map(([k, v]) => `${k}=${v}`).join('  |  ')
+    : '';
+  log.info(`Exporting PDF (${rows.length.toLocaleString()} rows)…`);
+  try {
+    const res = await fetch('/api/reports/export/pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows, title, params, filename }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    const blob = await res.blob();
+    _triggerDownload(blob, filename + '.pdf');
+    log.success(`PDF downloaded (${rows.length.toLocaleString()} rows)`);
+  } catch (e) { log.error('PDF export failed: ' + e.message); }
+}
+
+async function exportPpt() {
+  if (!currentReport || !lastRunResult) return;
+  const rows = _getExportRows();
+  if (!rows.length) { log.warn('No rows to export'); return; }
+  const filename = currentReport.path.split('/').pop().replace('.sql', '');
+  const title    = currentReport.meta?.title || filename;
+  const params   = lastRunResult._params
+    ? Object.entries(lastRunResult._params).map(([k, v]) => `${k}=${v}`).join('  |  ')
+    : '';
+  log.info(`Exporting PPT (${rows.length.toLocaleString()} rows)…`);
+  try {
+    const res = await fetch('/api/reports/export/ppt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows, title, params, filename }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    const blob = await res.blob();
+    _triggerDownload(blob, filename + '.pptx');
+    log.success(`PPT downloaded (${rows.length.toLocaleString()} rows)`);
+  } catch (e) { log.error('PPT export failed: ' + e.message); }
 }
 
 // ============================================================
@@ -1611,10 +1676,11 @@ async function selectRptDataset(name) {
 
 async function generateChart() {
   const dataset = _rptSelectedName;
-  const x     = document.getElementById('rpt-x').value;
-  const y     = document.getElementById('rpt-y').value;
-  const color = document.getElementById('rpt-color').value || null;
-  const title = document.getElementById('rpt-title').value.trim();
+  const x           = document.getElementById('rpt-x').value;
+  const y           = document.getElementById('rpt-y').value;
+  const color       = document.getElementById('rpt-color').value || null;
+  const title       = document.getElementById('rpt-title').value.trim();
+  const show_legend = document.getElementById('rpt-show-legend').checked;
   if (!dataset || !x || !y) { alert('Select a dataset, X-axis and Y-axis first'); return; }
 
   log.info(`Generating ${_rptChartType} chart for "${dataset}"`);
@@ -1623,7 +1689,7 @@ async function generateChart() {
     const res = await fetch('/api/reporting/chart', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dataset, chart_type: _rptChartType, x, y, color, title }),
+      body: JSON.stringify({ dataset, chart_type: _rptChartType, x, y, color, title, show_legend }),
     });
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
     const fig = await res.json();

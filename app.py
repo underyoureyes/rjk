@@ -141,6 +141,42 @@ async def export_excel(request: Request):
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+@app.post("/api/reports/export/pdf")
+async def export_pdf(request: Request):
+    body = await request.json()
+    rows     = body.get("rows", [])
+    title    = body.get("title", "Report")
+    params   = body.get("params", "")
+    filename = body.get("filename", "report") + ".pdf"
+    try:
+        data = export_service.to_pdf(rows, title=title, params=params)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/api/reports/export/ppt")
+async def export_ppt(request: Request):
+    body = await request.json()
+    rows     = body.get("rows", [])
+    title    = body.get("title", "Report")
+    params   = body.get("params", "")
+    filename = body.get("filename", "report") + ".pptx"
+    try:
+        data = export_service.to_ppt(rows, title=title, params=params)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @app.get("/api/config/persist-options")
 def persist_options():
     return {"mysql_available": bool(config.mysql_url)}
@@ -265,11 +301,12 @@ def get_persisted_agg(name: str):
 async def generate_chart(request: Request):
     body = await request.json()
     dataset = (body.get("dataset") or "").strip()
-    chart_type = body.get("chart_type", "bar")
-    x = body.get("x", "")
-    y = body.get("y", "")
-    color = body.get("color") or None
-    title = body.get("title", "")
+    chart_type  = body.get("chart_type", "bar")
+    x           = body.get("x", "")
+    y           = body.get("y", "")
+    color       = body.get("color") or None
+    title       = body.get("title", "")
+    show_legend = bool(body.get("show_legend", False))
     if not dataset or not x or not y:
         raise HTTPException(status_code=400, detail="dataset, x, and y are required")
     aggs_dir = Path(config.audit_db_path).parent / "aggs"
@@ -278,7 +315,7 @@ async def generate_chart(request: Request):
         raise HTTPException(status_code=404, detail=f"Dataset '{dataset}' not found")
     try:
         rows = json.loads(path.read_text(encoding="utf-8")).get("rows", [])
-        fig = chart_service.build(rows, chart_type, x, y, color, title)
+        fig = chart_service.build(rows, chart_type, x, y, color, title, show_legend=show_legend)
         return fig
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
