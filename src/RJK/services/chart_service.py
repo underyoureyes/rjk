@@ -120,13 +120,21 @@ class ChartService:
 
     def _map(self, df: pd.DataFrame, loc_col: str, val_col: str, title: str):
         rtype = self._detect_region_type(df[loc_col].tolist())
+        vmin = float(df[val_col].min())
+        vmax = float(df[val_col].max())
+        # Ensure min != max so the full colour range is used
+        if vmin == vmax:
+            vmin = 0.0
 
         if rtype == 'us_states':
-            return px.choropleth(
+            fig = px.choropleth(
                 df, locations=loc_col, locationmode='USA-states',
                 color=val_col, title=title, scope='usa',
-                color_continuous_scale='Blues',
+                color_continuous_scale='YlOrRd',
+                range_color=[vmin, vmax],
             )
+            fig.update_geos(showland=True, landcolor='#e8e8e8', showocean=True, oceancolor='#cce5f6')
+            return fig
 
         if rtype == 'uk_counties':
             geojson = self._load_uk_geojson()
@@ -136,19 +144,27 @@ class ChartService:
                     df2, geojson=geojson,
                     locations=loc_col, featureidkey=_UK_LAD_FEATURE_KEY,
                     color=val_col, title=title,
-                    color_continuous_scale='Blues',
+                    color_continuous_scale='YlOrRd',
+                    range_color=[vmin, vmax],
                 )
                 fig.update_geos(fitbounds='locations', visible=False)
                 return fig
-            # GeoJSON unavailable — fall back to bar
             return px.bar(df, x=loc_col, y=val_col, title=f"{title} (UK map data unavailable — check network)")
 
         # World countries
-        return px.choropleth(
+        fig = px.choropleth(
             df, locations=loc_col, locationmode='country names',
             color=val_col, title=title,
-            color_continuous_scale='Blues',
+            color_continuous_scale='YlOrRd',
+            range_color=[vmin, vmax],
         )
+        fig.update_geos(
+            showland=True, landcolor='#e8e8e8',
+            showocean=True, oceancolor='#cce5f6',
+            showcoastlines=True, coastlinecolor='#aaaaaa',
+            fitbounds='locations',
+        )
+        return fig
 
     def _normalize_to_geojson(self, df: pd.DataFrame, col: str, geojson: dict, feature_key: str) -> pd.DataFrame:
         keys = feature_key.split('.')
