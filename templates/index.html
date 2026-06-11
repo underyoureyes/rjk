@@ -228,6 +228,7 @@
   .empty-state { color: var(--text-muted); font-size: .85rem; text-align: center; padding: 48px 0; }
   .btn-rjk { background: var(--rjk-blue); color: #fff; border: none; }
   .btn-rjk:hover { background: var(--rjk-blue-hv); color: #fff; }
+  .btn-xs { padding: 1px 6px; font-size: .72rem; line-height: 1.4; }
   [data-theme="high-contrast"] .btn-rjk,
   [data-theme="high-contrast"] .btn-rjk:hover { color: #000; }
 
@@ -304,6 +305,10 @@
       <li class="nav-item">
         <a class="nav-link" href="#" data-tab="tab-logs">
           <i class="bi bi-terminal me-1"></i>Logs</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" data-tab="tab-admin" id="nav-admin">
+          <i class="bi bi-shield-lock me-1"></i>Admin</a>
       </li>
     </ul>
 
@@ -674,6 +679,91 @@
     </div>
 
     <!-- ============================================================
+         TAB: Admin
+    ============================================================ -->
+    <div id="tab-admin" style="display:none;">
+
+      <!-- Status card -->
+      <div id="admin-status-card" class="mb-3 p-3 rounded" style="background:var(--bg-panel); border:1px solid var(--border);">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="section-title mb-0"><i class="bi bi-shield-lock me-1"></i>Access Control</span>
+          <span id="admin-mode-badge" class="badge ms-2"></span>
+        </div>
+        <div id="admin-status-body" class="small" style="color:var(--text-muted);"></div>
+      </div>
+
+      <!-- Folder Rules -->
+      <div class="mb-3 p-3 rounded" style="background:var(--bg-panel); border:1px solid var(--border);">
+        <div class="d-flex align-items-center mb-2">
+          <span class="section-title mb-0">Folder Creation Rules</span>
+          <button class="btn btn-sm btn-rjk ms-auto" onclick="adminAddRule()">
+            <i class="bi bi-plus-lg me-1"></i>Add Rule
+          </button>
+        </div>
+        <p class="small mb-2" style="color:var(--text-muted);">
+          Rules control who may create report folders. Patterns use shell wildcards
+          (<code>*</code> = any, <code>demo/*</code> = subfolders of demo). Most-specific
+          pattern wins. If no rules exist and auth is enabled, all creation is blocked.
+        </p>
+        <div id="admin-rules-table">
+          <div class="text-muted small fst-italic">Loading…</div>
+        </div>
+        <div id="rule-editor-container"></div>
+      </div>
+
+      <!-- Admins -->
+      <div class="mb-3 p-3 rounded" style="background:var(--bg-panel); border:1px solid var(--border);">
+        <span class="section-title d-block mb-2">Admin Access</span>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Unix admin groups <span class="text-muted fw-normal">(comma-separated)</span></label>
+            <input type="text" id="admin-groups-input" class="form-control form-control-sm"
+                   placeholder="rjk_admins, ops"
+                   style="background:var(--bg-input); color:var(--text-primary); border-color:var(--input-border);">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Temporary admin users</label>
+            <div id="admin-temp-users-list" class="d-flex flex-wrap gap-1 mb-1"></div>
+            <div class="input-group input-group-sm">
+              <input type="text" id="admin-temp-user-input" class="form-control"
+                     placeholder="username"
+                     style="background:var(--bg-input); color:var(--text-primary); border-color:var(--input-border);">
+              <input type="text" id="admin-temp-user-note" class="form-control"
+                     placeholder="note (optional)"
+                     style="background:var(--bg-input); color:var(--text-primary); border-color:var(--input-border);">
+              <input type="date" id="admin-temp-user-expires" class="form-control"
+                     title="Expiry date (leave blank = never expires)"
+                     style="background:var(--bg-input); color:var(--text-primary); border-color:var(--input-border);">
+              <button class="btn btn-sm btn-outline-secondary" onclick="adminAddTempAdmin()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Unix groups browser (server only) -->
+      <div class="mb-3 p-3 rounded" style="background:var(--bg-panel); border:1px solid var(--border);">
+        <div class="d-flex align-items-center mb-2">
+          <span class="section-title mb-0">Unix Groups on This Server</span>
+          <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="adminLoadUnixGroups()">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+          </button>
+        </div>
+        <div id="admin-unix-groups-body" class="small" style="color:var(--text-muted);">
+          Click Refresh to load.
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 justify-content-end">
+        <button class="btn btn-sm btn-outline-secondary" onclick="adminLoadConfig()">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>Discard Changes
+        </button>
+        <button class="btn btn-sm btn-rjk" onclick="adminSaveConfig()">
+          <i class="bi bi-floppy me-1"></i>Save Configuration
+        </button>
+      </div>
+    </div>
+
+    <!-- ============================================================
          TAB: Logs
     ============================================================ -->
     <div id="tab-logs" style="display:none;">
@@ -878,13 +968,13 @@ function switchTab(tabId) {
   document.querySelectorAll('[data-tab]').forEach(a => a.classList.remove('active'));
   document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
 
-  ['tab-reports', 'tab-audit', 'tab-logs'].forEach(id => {
+  ['tab-reports', 'tab-audit', 'tab-logs', 'tab-admin'].forEach(id => {
     document.getElementById(id).style.display = (id === tabId) ? '' : 'none';
   });
 
-  // Hide sidebar on Logs/Audit; restore user preference elsewhere
+  // Hide sidebar on Logs/Audit/Admin; restore user preference elsewhere
   const sidebar = document.getElementById('sidebar');
-  if (tabId === 'tab-logs' || tabId === 'tab-audit') {
+  if (tabId === 'tab-logs' || tabId === 'tab-audit' || tabId === 'tab-admin') {
     sidebar.classList.add('collapsed');
     document.getElementById('sidebar-toggle').style.display = 'none';
   } else {
@@ -894,6 +984,7 @@ function switchTab(tabId) {
   }
 
   if (tabId === 'tab-audit') loadAudit();
+  if (tabId === 'tab-admin') adminInit();
 }
 
 let _sidebarUserCollapsed = false;
@@ -1488,6 +1579,305 @@ function _checkAggsControl(rawRows, aggsRows, value_cols) {
       </table>
     </div>`;
   banner.style.display = '';
+}
+
+// ============================================================
+// Admin — access control
+// ============================================================
+let _adminCfg = { folder_rules: [], admin_groups: [], admin_temp_users: [] };
+let _adminInitDone = false;
+
+async function adminInit() {
+  if (_adminInitDone) return;
+  _adminInitDone = true;
+  await Promise.all([adminLoadStatus(), adminLoadConfig()]);
+}
+
+async function adminLoadStatus() {
+  try {
+    const s = await fetch('/api/admin/status').then(r => r.json());
+    const badge = document.getElementById('admin-mode-badge');
+    const body  = document.getElementById('admin-status-body');
+    if (s.local_run) {
+      badge.className = 'badge ms-2 bg-secondary';
+      badge.textContent = 'LOCAL — controls disabled';
+      body.innerHTML = `<i class="bi bi-info-circle me-1"></i>
+        Running locally — folder creation is unrestricted.
+        Deploy with <code>AUTH_ENABLED=true</code> to enforce the rules below.`;
+    } else {
+      badge.className = 'badge ms-2 bg-success';
+      badge.textContent = 'SERVER — controls active';
+      const grpStr = s.current_user_groups.length ? s.current_user_groups.join(', ') : 'none';
+      const adminMark = s.is_admin
+        ? '<span class="badge bg-warning text-dark ms-1">admin</span>' : '';
+      body.innerHTML = `<i class="bi bi-person me-1"></i>Logged in as
+        <strong>${s.current_user}</strong>${adminMark}
+        &nbsp;·&nbsp; Groups: <code>${grpStr}</code>
+        &nbsp;·&nbsp; Unix API: ${s.unix_available ? '✓ available' : '✗ not available (Windows)'}`;
+    }
+  } catch (e) { log.error('Admin status: ' + e.message); }
+}
+
+async function adminLoadConfig() {
+  try {
+    _adminCfg = await fetch('/api/admin/config').then(r => r.json());
+    _adminRenderRules();
+    document.getElementById('admin-groups-input').value = (_adminCfg.admin_groups || []).join(', ');
+    _adminRenderTempAdmins();
+  } catch (e) { log.error('Admin config load: ' + e.message); }
+}
+
+function _adminRenderRules() {
+  const el = document.getElementById('admin-rules-table');
+  const rules = _adminCfg.folder_rules || [];
+  if (!rules.length) {
+    el.innerHTML = '<div class="text-muted small fst-italic">No rules defined. Add a rule to control folder creation.</div>';
+    return;
+  }
+  const rows = rules.map((r, i) => {
+    const grps  = (r.unix_groups || []).join(', ') || '<span class="text-muted">—</span>';
+    const temps = (r.temp_users || []).map(u => {
+      const exp = u.expires ? ` <span class="text-muted">(exp ${u.expires})</span>` : '';
+      return `<span class="badge bg-secondary me-1">${u.username}${exp}</span>`;
+    }).join('') || '<span class="text-muted">—</span>';
+    return `<tr>
+      <td class="font-monospace small">${r.folder_pattern}</td>
+      <td class="small">${r.description || '<span class="text-muted">—</span>'}</td>
+      <td class="small">${grps}</td>
+      <td class="small">${temps}</td>
+      <td class="text-end">
+        <button class="btn btn-xs btn-outline-secondary me-1" onclick="adminEditRule(${i})">
+          <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn btn-xs btn-outline-danger" onclick="adminDeleteRule(${i})">
+          <i class="bi bi-trash"></i>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<table class="table table-sm table-hover mb-0" style="font-size:.82rem;">
+    <thead><tr>
+      <th>Folder pattern</th><th>Description</th>
+      <th>Unix groups</th><th>Temp users</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function _adminRenderTempAdmins() {
+  const el = document.getElementById('admin-temp-users-list');
+  const users = _adminCfg.admin_temp_users || [];
+  el.innerHTML = users.map((u, i) => {
+    const exp = u.expires ? ` · exp ${u.expires}` : '';
+    const note = u.note ? ` · ${u.note}` : '';
+    return `<span class="badge bg-warning text-dark d-flex align-items-center gap-1">
+      ${u.username}${note}${exp}
+      <i class="bi bi-x" style="cursor:pointer;" onclick="adminRemoveTempAdmin(${i})"></i>
+    </span>`;
+  }).join('');
+}
+
+function adminAddTempAdmin() {
+  const un = document.getElementById('admin-temp-user-input').value.trim();
+  if (!un) return;
+  const note    = document.getElementById('admin-temp-user-note').value.trim();
+  const expires = document.getElementById('admin-temp-user-expires').value || null;
+  if (!_adminCfg.admin_temp_users) _adminCfg.admin_temp_users = [];
+  _adminCfg.admin_temp_users.push({
+    username: un, note, expires,
+    added: new Date().toISOString().slice(0, 10),
+  });
+  document.getElementById('admin-temp-user-input').value  = '';
+  document.getElementById('admin-temp-user-note').value   = '';
+  document.getElementById('admin-temp-user-expires').value = '';
+  _adminRenderTempAdmins();
+}
+
+function adminRemoveTempAdmin(i) {
+  _adminCfg.admin_temp_users.splice(i, 1);
+  _adminRenderTempAdmins();
+}
+
+function adminAddRule() {
+  _adminOpenRuleModal(-1, {
+    id: '', folder_pattern: '', description: '', unix_groups: [], temp_users: [],
+  });
+}
+
+function adminEditRule(i) {
+  _adminOpenRuleModal(i, _adminCfg.folder_rules[i]);
+}
+
+function adminDeleteRule(i) {
+  if (!confirm(`Delete rule "${_adminCfg.folder_rules[i].folder_pattern}"?`)) return;
+  _adminCfg.folder_rules.splice(i, 1);
+  _adminRenderRules();
+}
+
+// Inline rule editor (modal-less — renders an edit form in a dedicated div)
+let _editingRuleIdx = -1;
+
+function _adminOpenRuleModal(idx, rule) {
+  _editingRuleIdx = idx;
+  const existing = (rule.temp_users || []).map(u => {
+    const exp = u.expires ? ` · exp ${u.expires}` : '';
+    const note = u.note ? ` · ${u.note}` : '';
+    return `<div class="d-flex align-items-center gap-2 mb-1 rule-temp-user-row" data-username="${u.username}">
+      <span class="badge bg-secondary">${u.username}${note}${exp}</span>
+      <input type="hidden" class="ru-username" value="${u.username}">
+      <input type="hidden" class="ru-note"     value="${u.note||''}">
+      <input type="hidden" class="ru-expires"  value="${u.expires||''}">
+      <input type="hidden" class="ru-added"    value="${u.added||''}">
+      <button type="button" class="btn btn-xs btn-outline-danger"
+        onclick="this.closest('.rule-temp-user-row').remove()"><i class="bi bi-x"></i></button>
+    </div>`;
+  }).join('');
+
+  document.getElementById('rule-editor-container').innerHTML = `
+    <div class="card mt-2" style="background:var(--bg-panel); border-color:var(--border);">
+      <div class="card-body">
+        <h6 class="card-title">${idx === -1 ? 'New Rule' : 'Edit Rule'}</h6>
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Folder pattern <span class="text-danger">*</span></label>
+            <input type="text" id="re-pattern" class="form-control form-control-sm" value="${rule.folder_pattern}"
+                   placeholder="* or demo/* or finance/uk/*"
+                   style="background:var(--bg-input);color:var(--text-primary);border-color:var(--input-border);">
+            <div class="form-text">Use <code>*</code> for any text, <code>?</code> for one character.</div>
+          </div>
+          <div class="col-md-8">
+            <label class="form-label small fw-semibold">Description</label>
+            <input type="text" id="re-desc" class="form-control form-control-sm" value="${rule.description||''}"
+                   placeholder="e.g. Finance team reports"
+                   style="background:var(--bg-input);color:var(--text-primary);border-color:var(--input-border);">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Unix groups <span class="text-muted fw-normal">(comma-separated)</span></label>
+            <input type="text" id="re-groups" class="form-control form-control-sm"
+                   value="${(rule.unix_groups||[]).join(', ')}"
+                   placeholder="rjk_users, analysts"
+                   style="background:var(--bg-input);color:var(--text-primary);border-color:var(--input-border);">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Temporary users</label>
+            <div id="re-temp-users-list">${existing}</div>
+            <div class="input-group input-group-sm mt-1">
+              <input type="text" id="re-add-username" class="form-control" placeholder="username"
+                     style="background:var(--bg-input);color:var(--text-primary);border-color:var(--input-border);">
+              <input type="text" id="re-add-note" class="form-control" placeholder="note"
+                     style="background:var(--bg-input);color:var(--text-primary);border-color:var(--input-border);">
+              <input type="date" id="re-add-expires" class="form-control" title="Expiry date"
+                     style="background:var(--bg-input);color:var(--text-primary);border-color:var(--input-border);">
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="_reAddTempUser()">Add</button>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-sm btn-rjk" onclick="_reSave()">
+            <i class="bi bi-check-lg me-1"></i>${idx === -1 ? 'Add Rule' : 'Update Rule'}
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="_reCancel()">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function _reAddTempUser() {
+  const un = document.getElementById('re-add-username').value.trim();
+  if (!un) return;
+  const note    = document.getElementById('re-add-note').value.trim();
+  const expires = document.getElementById('re-add-expires').value || '';
+  const today   = new Date().toISOString().slice(0, 10);
+  document.getElementById('re-temp-users-list').insertAdjacentHTML('beforeend', `
+    <div class="d-flex align-items-center gap-2 mb-1 rule-temp-user-row" data-username="${un}">
+      <span class="badge bg-secondary">${un}${note ? ' · '+note : ''}${expires ? ' · exp '+expires : ''}</span>
+      <input type="hidden" class="ru-username" value="${un}">
+      <input type="hidden" class="ru-note"     value="${note}">
+      <input type="hidden" class="ru-expires"  value="${expires}">
+      <input type="hidden" class="ru-added"    value="${today}">
+      <button type="button" class="btn btn-xs btn-outline-danger"
+        onclick="this.closest('.rule-temp-user-row').remove()"><i class="bi bi-x"></i></button>
+    </div>`);
+  ['re-add-username','re-add-note','re-add-expires'].forEach(id =>
+    document.getElementById(id).value = '');
+}
+
+function _reSave() {
+  const pattern = document.getElementById('re-pattern').value.trim();
+  if (!pattern) { alert('Folder pattern is required'); return; }
+  const groups = document.getElementById('re-groups').value
+    .split(',').map(s => s.trim()).filter(Boolean);
+  const tempRows = document.querySelectorAll('.rule-temp-user-row');
+  const tempUsers = [...tempRows].map(row => ({
+    username: row.querySelector('.ru-username').value,
+    note:     row.querySelector('.ru-note').value,
+    expires:  row.querySelector('.ru-expires').value || null,
+    added:    row.querySelector('.ru-added').value,
+  }));
+  const rule = {
+    id: _editingRuleIdx >= 0
+          ? (_adminCfg.folder_rules[_editingRuleIdx].id || _uuid4())
+          : _uuid4(),
+    folder_pattern: pattern,
+    description: document.getElementById('re-desc').value.trim(),
+    unix_groups: groups,
+    temp_users: tempUsers,
+  };
+  if (_editingRuleIdx === -1) {
+    _adminCfg.folder_rules.push(rule);
+  } else {
+    _adminCfg.folder_rules[_editingRuleIdx] = rule;
+  }
+  _reCancel();
+  _adminRenderRules();
+}
+
+function _reCancel() {
+  document.getElementById('rule-editor-container').innerHTML = '';
+}
+
+function _uuid4() {
+  return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>
+    (c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
+}
+
+async function adminLoadUnixGroups() {
+  const el = document.getElementById('admin-unix-groups-body');
+  el.textContent = 'Loading…';
+  try {
+    const data = await fetch('/api/admin/unix-groups').then(r => r.json());
+    if (!data.unix_available) {
+      el.innerHTML = '<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Unix group API not available on this platform (Windows dev machine).</span>';
+      return;
+    }
+    const groups = data.groups || [];
+    if (!groups.length) { el.textContent = 'No groups found.'; return; }
+    el.innerHTML = groups.map(g =>
+      `<span class="badge bg-secondary me-1 mb-1" title="GID ${g.gid} · ${g.members.length} member(s)">
+        ${g.name} <small class="opacity-75">${g.members.length}</small>
+      </span>`
+    ).join('');
+  } catch (e) { el.textContent = 'Failed: ' + e.message; }
+}
+
+async function adminSaveConfig() {
+  const adminGroupsRaw = document.getElementById('admin-groups-input').value;
+  _adminCfg.admin_groups = adminGroupsRaw.split(',').map(s => s.trim()).filter(Boolean);
+  try {
+    const res = await fetch('/api/admin/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(_adminCfg),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    const data = await res.json();
+    log.success(`Admin config saved — ${data.rules_saved} rule(s)`);
+    _adminInitDone = false;   // force re-fetch next time
+    adminInit();
+  } catch (e) {
+    log.error('Admin save failed: ' + e.message);
+    alert('Save failed: ' + e.message);
+  }
 }
 
 // ============================================================

@@ -2,6 +2,7 @@ import io
 import json
 import re
 import sys
+import uuid
 import yaml
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from RJK.audit.audit_service import AuditService
 from RJK.config.loader import Config
 from RJK.discovery.report_discovery import build_report_tree, discover_reports
 from RJK.parser.sql_metadata_parser import parse_sql_metadata
+from RJK.services.access_service import AccessService, AclConfig, FolderRule, TempUser
 from RJK.services.aggregation_service import AggregationService
 from RJK.services.chart_service import ChartService, infer_columns
 from RJK.services.data_scanner import get_scanner
@@ -32,6 +34,7 @@ for warning in config.validate():
 
 audit = AuditService(config.audit_db_path)
 report_service = ReportService(config, audit)
+access_service = AccessService(config.acl_path, auth_enabled=config.auth_enabled)
 export_service = ExportService()
 agg_service = AggregationService()
 chart_service = ChartService(geojson_cache_dir=Path(config.audit_db_path).parent / "geojson")
@@ -223,6 +226,11 @@ async def create_report(request: Request):
         raise HTTPException(status_code=400, detail="name is required")
     if not sql_text:
         raise HTTPException(status_code=400, detail="sql is required")
+
+    request_user = access_service.get_current_user(dict(request.headers))
+    allowed, reason = access_service.can_create_folder(request_user, folder)
+    if not allowed:
+        raise HTTPException(status_code=403, detail=f"Access denied: {reason}")
 
     safe_name = re.sub(r"[^\w\-]", "_", name).lower()
     if not safe_name.endswith(".sql"):
@@ -458,3 +466,66 @@ async def signoff(request: Request):
         raise HTTPException(status_code=400, detail="run_id and report_path are required")
     signoff_id = audit.log_signoff(int(run_id), report_path, signed_off_by, notes, params)
     return {"signoff_id": signoff_id, "status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Admin — access control
+# ---------------------------------------------------------------------------
+
+@app.get("/api/admin/status")
+async def admin_status(request: Request):
+    username = access_service.get_current_user(dict(request.headers))
+    user_groups = access_service.get_unix_groups(username)
+    cfg = access_service.load_config()
+    return {
+        "auth_enabled": access_service.auth_enabled,
+        "local_run": not access_service.auth_enabled,
+        "unix_available": _UNIX_AVAILABLE,
+        "current_user": username,
+        "current_user_groups": user_groups,
+        "is_admin": access_service.is_admin(username, user_groups=user_groups, cfg=cfg),
+    }
+
+
+@app.get("/api/admin/config")
+def admin_get_config():
+    cfg = access_service.load_config()
+    return access_service.config_to_dict(cfg)
+
+
+@app.put("/api/admin/config")
+async def admin_save_config(request: Request):
+    body = await request.json()
+    try:
+        rules = []
+        for r in body.get("folder_rules", []):
+            temp_users = [TempUser(**u) for u in r.get("temp_users", [])]
+            rules.append(FolderRule(
+                id=r.get("id") or str(uuid.uuid4())[:8],
+                folder_pattern=r.get("folder_pattern", "*"),
+                description=r.get("description", ""),
+                unix_groups=r.get("unix_groups", []),
+                temp_users=temp_users,
+            ))
+        admin_tu = [TempUser(**u) for u in body.get("admin_temp_users", [])]
+        cfg = AclConfig(
+            folder_rules=rules,
+            admin_groups=body.get("admin_groups", []),
+            admin_temp_users=admin_tu,
+        )
+        access_service.save_config(cfg)
+        return {"status": "ok", "rules_saved": len(rules)}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/admin/unix-groups")
+def admin_unix_groups():
+    return {"groups": access_service.list_system_groups(), "unix_available": _UNIX_AVAILABLE}
+
+
+try:
+    import grp as _grp_check
+    _UNIX_AVAILABLE = True
+except ImportError:
+    _UNIX_AVAILABLE = False
