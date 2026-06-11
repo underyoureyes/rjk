@@ -7,8 +7,8 @@ from pathlib import Path
 from RJK.parser.sql_metadata_parser import parse_sql_metadata
 from RJK.runners.base import BaseRunner
 
-_DATE_FMTS = ("%d-%b-%Y", "%Y-%m-%d")
-_FMT = "%d-%b-%Y"
+_DATE_FMTS = ("%Y-%m-%d", "%d-%b-%Y")   # ISO first; legacy format kept for parsing old data
+_FMT = "%Y-%m-%d"
 _TODAY = lambda: datetime.now().strftime(_FMT)
 
 _REL_DATE = re.compile(r"^today([+-])(\d+)$", re.IGNORECASE)
