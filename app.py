@@ -18,6 +18,7 @@ from RJK.discovery.report_discovery import build_report_tree, discover_reports
 from RJK.parser.sql_metadata_parser import parse_sql_metadata
 from RJK.services.aggregation_service import AggregationService
 from RJK.services.chart_service import ChartService, infer_columns
+from RJK.services.data_scanner import get_scanner
 from RJK.services.export_service import ExportService
 from RJK.services.report_service import ReportService
 from RJK.ui.layout import get_index_html
@@ -79,6 +80,16 @@ async def run_report(request: Request):
             path, params, run_by, max_rows,
             conn_string=conn_string, username=username, password=password,
         )
+        # Scan columns for sensitive data and attach result
+        if result["rows"]:
+            scan = get_scanner().scan_columns(list(result["rows"][0].keys()))
+            result["scan"] = {
+                "clean": scan.clean,
+                "flags": [{"column": f.column, "reason": f.reason, "severity": f.severity} for f in scan.flags],
+                "summary": scan.summary(),
+            }
+        else:
+            result["scan"] = {"clean": True, "flags": [], "summary": "No data returned."}
         return result
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
@@ -183,6 +194,16 @@ async def export_ppt(request: Request):
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.get("/api/reports/scan-config")
+def scan_config():
+    from RJK.services.data_scanner import RESTRICTED_KEYWORDS, PII_COMBINATION_KEYWORDS, PII_COMBO_THRESHOLD
+    return {
+        "restricted_keywords": RESTRICTED_KEYWORDS,
+        "pii_combination_keywords": PII_COMBINATION_KEYWORDS,
+        "pii_combo_threshold": PII_COMBO_THRESHOLD,
+    }
 
 
 @app.post("/api/reports/create")

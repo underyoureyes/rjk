@@ -423,6 +423,8 @@
               </div>
             </div>
           </div>
+          <!-- Scan result banner (shown after run if issues found) -->
+          <div id="scan-banner" style="display:none;" class="px-1 pt-1"></div>
           <div class="grid-outer" style="border-radius:0 0 6px 6px;">
             <div id="report-grid" class="ag-theme-alpine grid-wrap"></div>
           </div>
@@ -1146,10 +1148,11 @@ async function runReport(odbcOverrides) {
     reportCache[currentReport.path] = lastRunResult;
 
     log.success(`Run #${lastRunResult.run_id} complete — ${lastRunResult.row_count.toLocaleString()} rows`);
-    renderResultsGrid(lastRunResult.rows);
+
+    // Show scan result then render
+    _handleScanResult(lastRunResult);
 
     document.getElementById('btn-export').disabled = false;
-
     loadAudit();
   } catch (e) {
     log.error('Run failed: ' + e.message);
@@ -1346,6 +1349,75 @@ function _populateAuditColChooser(api, listId) {
 function auditToggleCol(apiKey, colKey, visible) {
   const api = window[apiKey];
   if (api) api.applyColumnState({ state: [{ colId: colKey, hide: !visible }] });
+}
+
+// ============================================================
+// Data scan
+// ============================================================
+let _cleanseModal = null;
+let _pendingScanRows = null;
+
+function _handleScanResult(result) {
+  const banner = document.getElementById('scan-banner');
+  const scan = result?.scan;
+  banner.style.display = 'none';
+  banner.innerHTML = '';
+
+  if (!scan || scan.clean) {
+    // Clean — show brief success notice then render
+    renderResultsGrid(result.rows);
+    banner.innerHTML = `<div class="alert alert-success alert-dismissible py-1 px-3 mb-1 small" role="alert">
+      <i class="bi bi-shield-check me-1"></i>Data scanned — no sensitive columns detected.
+      <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+    </div>`;
+    banner.style.display = '';
+    return;
+  }
+
+  // Flagged — show modal
+  _pendingScanRows = result.rows;
+  const flags = scan.flags || [];
+  const list = flags.map(f => {
+    const cls = f.severity === 'blocked' ? 'danger' : 'warning';
+    const icon = f.severity === 'blocked' ? 'bi-x-octagon-fill' : 'bi-exclamation-triangle-fill';
+    return `<div class="d-flex align-items-center gap-2 mb-1">
+      <span class="badge bg-${cls}"><i class="bi ${icon} me-1"></i>${f.severity.toUpperCase()}</span>
+      <code>${f.column}</code>
+      <span class="text-muted small">— ${f.reason}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('cleanse-flags-list').innerHTML = list;
+
+  if (!_cleanseModal) _cleanseModal = new bootstrap.Modal(document.getElementById('cleanseModal'));
+  _cleanseModal.show();
+
+  banner.innerHTML = `<div class="alert alert-warning py-1 px-3 mb-1 small" role="alert">
+    <i class="bi bi-shield-exclamation me-1"></i><strong>Sensitive data detected.</strong> ${scan.summary}
+  </div>`;
+  banner.style.display = '';
+}
+
+function _proceedWithAllData() {
+  if (_pendingScanRows) { renderResultsGrid(_pendingScanRows); _pendingScanRows = null; }
+  if (_cleanseModal) _cleanseModal.hide();
+}
+
+function _proceedCleansed() {
+  if (_cleanseModal) _cleanseModal.hide();
+  if (!_pendingScanRows || !lastRunResult?.scan) return;
+  const toRemove = (lastRunResult.scan.flags || []).map(f => f.column);
+  const cleansed = _pendingScanRows.map(row => {
+    const r = { ...row };
+    toRemove.forEach(c => delete r[c]);
+    return r;
+  });
+  _pendingScanRows = null;
+  renderResultsGrid(cleansed);
+  log.warn(`Removed sensitive columns: ${toRemove.join(', ')}`);
+  const banner = document.getElementById('scan-banner');
+  banner.innerHTML = `<div class="alert alert-info py-1 px-3 mb-1 small" role="alert">
+    <i class="bi bi-eraser me-1"></i>Cleansed — removed columns: <strong>${toRemove.join(', ')}</strong>
+  </div>`;
 }
 
 // ============================================================
@@ -2361,6 +2433,33 @@ function initEmptyAuditGrids() {
   });
 }
 </script>
+
+<!-- ============================================================
+     Data Cleanse Modal
+============================================================ -->
+<div class="modal fade" id="cleanseModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-warning-subtle">
+        <h5 class="modal-title"><i class="bi bi-shield-exclamation me-2 text-warning"></i>Sensitive Data Detected</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small mb-3">The dataset was scanned and the following columns were flagged. You can remove them before the data is displayed or persisted, or proceed with all data.</p>
+        <div id="cleanse-flags-list" class="mb-3"></div>
+        <div class="form-text"><i class="bi bi-info-circle me-1"></i>Blocked columns (red) contain restricted keywords. Warning columns (yellow) form a PII combination together.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal" onclick="_proceedWithAllData()">
+          Proceed with all data
+        </button>
+        <button class="btn btn-sm btn-warning" onclick="_proceedCleansed()">
+          <i class="bi bi-eraser me-1"></i>Remove flagged columns &amp; proceed
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ============================================================
      Create Report Modal

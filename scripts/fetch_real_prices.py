@@ -22,7 +22,16 @@ except ImportError:
     print("yfinance not installed. Run: pip install yfinance")
     sys.exit(1)
 
-TICKERS = ["PLTR", "GOOGL", "AAPL", "TSLA", "MSFT", "NVDA", "META"]
+TICKER_MAP = {
+    "AAPL":  "A123",
+    "GOOGL": "G123",
+    "MSFT":  "M123",
+    "META":  "ME123",
+    "NVDA":  "N123",
+    "PLTR":  "P123",
+    "TSLA":  "T123",
+}
+TICKERS = list(TICKER_MAP.keys())
 END   = datetime.now()
 START = END - timedelta(days=730)
 
@@ -45,7 +54,7 @@ for ticker in TICKERS:
     for date, row in df.iterrows():
         close_date = date.strftime("%Y-%m-%d")
         rows.append({
-            "TICKER":      ticker,
+            "TICKER":      TICKER_MAP[ticker],
             "CLOSE_DATE":  close_date,
             "MONTH":       date.replace(day=1).strftime("%Y-%m-%d"),
             "REPORT_DATE": today_str,

@@ -42,6 +42,7 @@ APP_FILES = [
     "src/RJK/services/__init__.py",
     "src/RJK/services/aggregation_service.py",
     "src/RJK/services/chart_service.py",
+    "src/RJK/services/data_scanner.py",
     "src/RJK/services/export_service.py",
     "src/RJK/services/report_service.py",
     "src/RJK/ui/__init__.py",
