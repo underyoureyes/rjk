@@ -439,7 +439,7 @@
               <button class="btn btn-sm btn-rjk ms-auto" onclick="showAggsSignoffModal()">
                 <i class="bi bi-pen me-1"></i>Sign Off Aggregation
               </button>
-              <button class="btn btn-sm" style="background:#2ea043;color:#fff;border:none;" onclick="showPersistModal()" title="Persist aggregated data">
+              <button id="persist-btn" class="btn btn-sm" style="background:#2ea043;color:#fff;border:none;" onclick="showPersistModal()" title="Sign off the aggregation before persisting" disabled>
                 <i class="bi bi-database-fill-add me-1"></i>Persist
               </button>
             </div>
@@ -1266,6 +1266,11 @@ async function submitSignoff() {
     const data = await res.json();
     _signoffModal.hide();
     log.success(`Sign-off #${data.signoff_id} recorded for run #${payload.run_id}`);
+    if (isAgg) {
+      const btn = document.getElementById('persist-btn');
+      btn.disabled = false;
+      btn.title = 'Persist aggregated data';
+    }
     loadAudit();
   } catch (e) {
     log.error('Sign-off failed: ' + e.message);
@@ -1614,6 +1619,9 @@ async function previewAggregation() {
     document.getElementById('aggs-run-id-badge').style.display = '';
     document.getElementById('aggs-search').value = '';
     renderAggsGrid(data.rows);
+    const persistBtn = document.getElementById('persist-btn');
+    persistBtn.disabled = true;
+    persistBtn.title = 'Sign off the aggregation before persisting';
     const bar = document.getElementById('aggs-signoff-bar');
     bar.style.display = '';
     document.getElementById('aggs-signoff-summary').textContent =
