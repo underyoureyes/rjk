@@ -13,6 +13,7 @@ class Config:
     reports_root: Path = field(default_factory=lambda: Path(os.getenv("REPORTS_ROOT", "reports")))
     audit_db_path: Path = field(default_factory=lambda: Path(os.getenv("AUDIT_DB_PATH", "data/audit.db")))
     mock_mode: bool = field(default_factory=lambda: os.getenv("MOCK_MODE", "true").lower() == "true")
+    mysql_url: str = field(default_factory=lambda: os.getenv("MYSQL_URL", ""))
 
     def validate(self) -> list[str]:
         warnings = []

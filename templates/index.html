@@ -569,17 +569,26 @@
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold">Storage Format</label>
-          <div class="d-flex gap-4">
+          <div class="d-flex flex-column gap-2">
             <div class="form-check">
               <input class="form-check-input" type="radio" name="persist-format" id="persist-fmt-json" value="json" checked>
               <label class="form-check-label" for="persist-fmt-json">
-                <strong>JSON File</strong> <span class="text-muted small">— always available</span>
+                <strong>JSON File</strong>
+                <span class="text-muted small ms-1">— always available, recommended up to ~50 MB</span>
+              </label>
+            </div>
+            <div class="form-check" id="persist-mysql-wrap">
+              <input class="form-check-input" type="radio" name="persist-format" id="persist-fmt-mysql" value="mysql" disabled>
+              <label class="form-check-label" for="persist-fmt-mysql" id="persist-mysql-label">
+                <strong>MySQL Table</strong>
+                <span class="text-muted small ms-1">— local work, up to ~500 MB; set MYSQL_URL in .env to enable</span>
               </label>
             </div>
             <div class="form-check" title="Available on Dash Server only — to be developed">
               <input class="form-check-input" type="radio" name="persist-format" id="persist-fmt-hive" value="hive" disabled>
               <label class="form-check-label text-muted" for="persist-fmt-hive">
-                <strong>Hive Table</strong> <span class="small">— Dash Server only <em>(to be developed)</em></span>
+                <strong>Hive Table</strong>
+                <span class="small ms-1">— Dash Server only, for very large datasets <em>(to be developed)</em></span>
               </label>
             </div>
           </div>
@@ -1269,6 +1278,7 @@ async function submitSignoff() {
 // ============================================================
 let _persistModal = null;
 let _persistRows   = null;
+let _persistOptions = null;  // cached from /api/config/persist-options
 
 function _fmtBytes(b) {
   if (b < 1024)        return `${b} B`;
@@ -1277,30 +1287,54 @@ function _fmtBytes(b) {
   return `${(b / 1073741824).toFixed(2)} GB`;
 }
 
-function showPersistModal() {
+async function showPersistModal() {
   if (!lastAggsResult || !aggsGridApi) return;
+
+  // Fetch persist options once
+  if (!_persistOptions) {
+    try {
+      _persistOptions = await fetch('/api/config/persist-options').then(r => r.json());
+    } catch { _persistOptions = { mysql_available: false }; }
+  }
+  const mysqlAvailable = _persistOptions.mysql_available;
+  const mysqlInput = document.getElementById('persist-fmt-mysql');
+  const mysqlLabel = document.getElementById('persist-mysql-label');
+  mysqlInput.disabled = !mysqlAvailable;
+  if (mysqlAvailable) {
+    mysqlLabel.querySelector('span').textContent = '— local work, up to ~500 MB';
+    mysqlLabel.classList.remove('text-muted');
+  }
 
   _persistRows = _collectGridRows(aggsGridApi);
   const jsonStr = JSON.stringify(_persistRows);
   const sizeBytes = new TextEncoder().encode(jsonStr).length;
   const sizeMB = sizeBytes / 1048576;
 
-  let alertClass, recText, recClass;
-  if (sizeMB < 10) {
-    alertClass = 'alert-success'; recText = 'JSON recommended'; recClass = 'bg-success';
-  } else if (sizeMB < 100) {
-    alertClass = 'alert-warning'; recText = 'JSON — manageable'; recClass = 'bg-warning text-dark';
+  // Three-tier recommendation: JSON < 50 MB, MySQL 50–500 MB, Hive > 500 MB
+  let alertClass, recText, recClass, suggestFmt;
+  if (sizeMB < 50) {
+    alertClass = 'alert-success'; recText = 'JSON recommended (under 50 MB)'; recClass = 'bg-success'; suggestFmt = 'json';
+  } else if (sizeMB < 500) {
+    alertClass = 'alert-warning';
+    recText = mysqlAvailable ? 'MySQL recommended (50–500 MB)' : 'Consider MySQL for this size (50–500 MB)';
+    recClass = 'bg-warning text-dark'; suggestFmt = 'mysql';
   } else {
-    alertClass = 'alert-danger';  recText = 'Large — Hive recommended for production'; recClass = 'bg-danger';
+    alertClass = 'alert-danger';  recText = 'Large dataset — Hive recommended for production'; recClass = 'bg-danger'; suggestFmt = 'hive';
   }
 
-  const alert = document.getElementById('persist-size-alert');
-  alert.className = `alert d-flex align-items-center gap-2 mb-3 ${alertClass}`;
+  document.getElementById('persist-size-alert').className =
+    `alert d-flex align-items-center gap-2 mb-3 ${alertClass}`;
   document.getElementById('persist-size-estimate').textContent =
     `${_fmtBytes(sizeBytes)} (${_persistRows.length.toLocaleString()} rows)`;
   const rec = document.getElementById('persist-recommendation');
   rec.textContent = recText;
   rec.className = `ms-auto badge ${recClass}`;
+
+  // Pre-select the recommended format if it's available
+  const bestAvailable = suggestFmt === 'mysql' && !mysqlAvailable ? 'json' : suggestFmt;
+  const fmtRadio = document.getElementById(`persist-fmt-${bestAvailable}`);
+  if (fmtRadio && !fmtRadio.disabled) fmtRadio.checked = true;
+  else document.getElementById('persist-fmt-json').checked = true;
 
   const stem = currentReport.path.split('/').pop().replace('.sql', '');
   const ts = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 15);
@@ -1315,7 +1349,6 @@ function showPersistModal() {
     `source rows:   ${lastAggsResult.source_row_count.toLocaleString()}`,
   ].join('\n');
 
-  document.getElementById('persist-fmt-json').checked = true;
   if (!_persistModal) _persistModal = new bootstrap.Modal(document.getElementById('persistModal'));
   _persistModal.show();
 }
