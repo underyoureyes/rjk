@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS agg_store (
 # Safe migrations — each is a no-op if the column already exists
 _MIGRATIONS = [
     "ALTER TABLE audit_signoffs ADD COLUMN params TEXT",
+    "ALTER TABLE agg_store ADD COLUMN persisted_by TEXT",
 ]
 
 
@@ -154,13 +155,14 @@ class AuditService:
         size_bytes: int,
         storage_path: str,
         fmt: str = "json",
+        persisted_by: str | None = None,
     ) -> int:
         with self._connect() as conn:
             cur = conn.execute(
                 """INSERT INTO agg_store
                    (name, report_path, run_id, group_by, value_cols,
-                    row_count, source_row_count, size_bytes, format, storage_path)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    row_count, source_row_count, size_bytes, format, storage_path, persisted_by)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     name,
                     report_path,
@@ -172,6 +174,7 @@ class AuditService:
                     size_bytes,
                     fmt,
                     storage_path,
+                    persisted_by,
                 ),
             )
             return cur.lastrowid

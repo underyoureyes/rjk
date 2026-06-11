@@ -157,6 +157,7 @@ async def persist_agg(request: Request):
     value_cols = body.get("value_cols", {})
     source_row_count = body.get("source_row_count", 0)
     fmt = body.get("format", "json")
+    persisted_by = (body.get("persisted_by") or "").strip() or None
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
     if not report_path:
@@ -166,12 +167,12 @@ async def persist_agg(request: Request):
     if fmt == "mysql":
         if not config.mysql_url:
             raise HTTPException(status_code=400, detail="MYSQL_URL is not configured")
-        return await _persist_mysql(name, rows, report_path, run_id, group_by, value_cols, source_row_count)
+        return await _persist_mysql(name, rows, report_path, run_id, group_by, value_cols, source_row_count, persisted_by)
     # JSON (default)
-    return await _persist_json(name, rows, report_path, run_id, group_by, value_cols, source_row_count)
+    return await _persist_json(name, rows, report_path, run_id, group_by, value_cols, source_row_count, persisted_by)
 
 
-async def _persist_json(name, rows, report_path, run_id, group_by, value_cols, source_row_count):
+async def _persist_json(name, rows, report_path, run_id, group_by, value_cols, source_row_count, persisted_by=None):
     aggs_dir = Path(config.audit_db_path).parent / "aggs"
     aggs_dir.mkdir(exist_ok=True)
     payload = {
@@ -193,6 +194,7 @@ async def _persist_json(name, rows, report_path, run_id, group_by, value_cols, s
             group_by=group_by, value_cols=value_cols,
             row_count=len(rows), source_row_count=source_row_count,
             size_bytes=size_bytes, storage_path=storage_path, fmt="json",
+            persisted_by=persisted_by,
         )
     except Exception as exc:
         Path(storage_path).unlink(missing_ok=True)
@@ -200,7 +202,7 @@ async def _persist_json(name, rows, report_path, run_id, group_by, value_cols, s
     return {"id": store_id, "name": name, "size_bytes": size_bytes, "path": storage_path}
 
 
-async def _persist_mysql(name, rows, report_path, run_id, group_by, value_cols, source_row_count):
+async def _persist_mysql(name, rows, report_path, run_id, group_by, value_cols, source_row_count, persisted_by=None):
     try:
         import pandas as pd
         from sqlalchemy import create_engine, text
@@ -232,6 +234,7 @@ async def _persist_mysql(name, rows, report_path, run_id, group_by, value_cols, 
             group_by=group_by, value_cols=value_cols,
             row_count=len(rows), source_row_count=source_row_count,
             size_bytes=size_bytes, storage_path=storage_path, fmt="mysql",
+            persisted_by=persisted_by,
         )
     except Exception as exc:
         raise HTTPException(status_code=409, detail=str(exc))

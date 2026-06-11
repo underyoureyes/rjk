@@ -454,13 +454,17 @@
             <div style="width:260px;min-width:260px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;flex-direction:column;gap:.85rem;">
 
               <div>
-                <label class="form-label fw-semibold small mb-1">Approved Dataset</label>
-                <div class="d-flex gap-1">
-                  <select class="form-select form-select-sm flex-grow-1" id="rpt-dataset-select" onchange="onRptDatasetChange()">
-                    <option value="">— select —</option>
-                  </select>
-                  <button class="btn btn-sm btn-outline-secondary" onclick="loadRptDatasets()" title="Refresh list"><i class="bi bi-arrow-clockwise"></i></button>
+                <div class="d-flex align-items-center mb-1">
+                  <label class="form-label fw-semibold small mb-0">Approved Dataset</label>
+                  <button class="btn btn-sm btn-outline-secondary ms-auto py-0 px-1" onclick="loadRptDatasets()" title="Refresh"><i class="bi bi-arrow-clockwise"></i></button>
                 </div>
+                <input type="text" class="form-control form-control-sm mb-1" id="rpt-filter-user"
+                       placeholder="Filter by user…" oninput="filterRptDatasets()">
+                <input type="date" class="form-control form-control-sm mb-1" id="rpt-filter-date"
+                       title="Show datasets created on or after this date" onchange="filterRptDatasets()">
+                <div id="rpt-dataset-list"
+                     style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;font-size:.78rem;"></div>
+                <div id="rpt-selected-label" class="font-monospace mt-1" style="font-size:.72rem;color:var(--text-muted);min-height:1rem;"></div>
               </div>
 
               <div>
@@ -616,6 +620,10 @@
           <label class="form-label fw-semibold">Unique Name</label>
           <input type="text" class="form-control font-monospace" id="persist-name-input" />
           <div class="form-text">Stored in the audit DB — used to retrieve this dataset later in the workflow.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Persisted By <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="persist-by-input" placeholder="Your name" />
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold">Storage Format</label>
@@ -1405,6 +1413,7 @@ async function showPersistModal() {
     `source rows:   ${lastAggsResult.source_row_count.toLocaleString()}`,
   ].join('\n');
 
+  document.getElementById('persist-by-input').value = '';
   if (!_persistModal) _persistModal = new bootstrap.Modal(document.getElementById('persistModal'));
   _persistModal.show();
 }
@@ -1412,10 +1421,13 @@ async function showPersistModal() {
 async function submitPersist() {
   const name = document.getElementById('persist-name-input').value.trim();
   if (!name) { alert('Please enter a name'); return; }
+  const by = document.getElementById('persist-by-input').value.trim();
+  if (!by) { alert('Please enter your name in "Persisted By"'); return; }
   const fmt = document.querySelector('input[name="persist-format"]:checked').value;
 
   const payload = {
     name, format: fmt,
+    persisted_by: by,
     rows: _persistRows,
     report_path: currentReport.path,
     run_id: lastRunResult.run_id,
@@ -1486,45 +1498,108 @@ function selectRptType(type) {
   });
 }
 
+let _rptAllDatasets  = [];
+let _rptSelectedName = null;
+let _rptPopovers     = [];  // track active Bootstrap popovers for disposal
+
 async function loadRptDatasets() {
-  const sel = document.getElementById('rpt-dataset-select');
   try {
     const { items } = await fetch('/api/aggs/persisted').then(r => r.json());
-    sel.innerHTML = '<option value="">— select dataset —</option>' +
-      items.map(d => {
-        const kb = d.size_bytes ? ` (${(d.size_bytes/1024).toFixed(0)} KB)` : '';
-        const fmt = d.format ? ` [${d.format}]` : '';
-        return `<option value="${d.name}">${d.name}${kb}${fmt}</option>`;
-      }).join('');
-    if (!items.length) {
-      sel.innerHTML = '<option value="">No persisted datasets yet</option>';
-    }
+    _rptAllDatasets = items;
+    filterRptDatasets();
   } catch (e) {
     log.error('Failed to load reporting datasets: ' + e.message);
   }
 }
 
-async function onRptDatasetChange() {
-  const name = document.getElementById('rpt-dataset-select').value;
-  if (!name) return;
+function filterRptDatasets() {
+  const userQ = (document.getElementById('rpt-filter-user').value || '').toLowerCase();
+  const dateQ = document.getElementById('rpt-filter-date').value;   // 'YYYY-MM-DD' or ''
+  const filtered = _rptAllDatasets.filter(d => {
+    if (userQ && !(d.persisted_by || '').toLowerCase().includes(userQ)) return false;
+    if (dateQ && d.created_at && d.created_at.slice(0, 10) < dateQ) return false;
+    return true;
+  });
+  _renderRptDatasetList(filtered);
+}
+
+function _renderRptDatasetList(items) {
+  // Dispose existing popovers
+  _rptPopovers.forEach(p => p.dispose());
+  _rptPopovers = [];
+
+  const list = document.getElementById('rpt-dataset-list');
+  if (!items.length) {
+    list.innerHTML = '<div class="px-2 py-2 text-muted" style="font-size:.78rem;">No datasets found</div>';
+    return;
+  }
+
+  list.innerHTML = items.map(d => {
+    const kb    = d.size_bytes ? `${(d.size_bytes/1024).toFixed(0)} KB` : '?';
+    const date  = d.created_at ? d.created_at.slice(0, 16).replace('T', ' ') : '';
+    const by    = d.persisted_by || '—';
+    const grp   = _tryParse(d.group_by, []).join(', ') || '—';
+    const vals  = Object.entries(_tryParse(d.value_cols, {})).map(([c,f]) => `${c}→${f}`).join(', ') || '—';
+    const tip   = [
+      `<table style="font-size:.73rem;border-collapse:collapse;">`,
+      `<tr><td style="padding:1px 6px 1px 0;color:#8b949e;">Report</td><td>${_esc(d.report_path)}</td></tr>`,
+      `<tr><td style="padding:1px 6px 1px 0;color:#8b949e;">Run ID</td><td>${d.run_id ?? '—'}</td></tr>`,
+      `<tr><td style="padding:1px 6px 1px 0;color:#8b949e;">Group By</td><td>${_esc(grp)}</td></tr>`,
+      `<tr><td style="padding:1px 6px 1px 0;color:#8b949e;">Value Cols</td><td>${_esc(vals)}</td></tr>`,
+      `<tr><td style="padding:1px 6px 1px 0;color:#8b949e;">Rows</td><td>${(d.row_count||0).toLocaleString()} (from ${(d.source_row_count||0).toLocaleString()})</td></tr>`,
+      `<tr><td style="padding:1px 6px 1px 0;color:#8b949e;">Size</td><td>${kb}</td></tr>`,
+      `<tr><td style="padding:1px 6px 1px 0;color:#8b949e;">Format</td><td>${d.format || '—'}</td></tr>`,
+      `<tr><td style="padding:1px 6px 1px 0;color:#8b949e;">Persisted By</td><td>${_esc(by)}</td></tr>`,
+      `<tr><td style="padding:1px 6px 1px 0;color:#8b949e;">Created</td><td>${_esc(date)}</td></tr>`,
+      `</table>`,
+    ].join('');
+    const active = d.name === _rptSelectedName ? 'background:var(--rjk-blue);color:#fff;' : '';
+    return `<div class="rpt-ds-item px-2 py-1 d-flex align-items-center gap-1"
+                 style="cursor:pointer;border-bottom:1px solid var(--border);${active}"
+                 data-name="${_esc(d.name)}"
+                 data-bs-toggle="popover" data-bs-placement="right" data-bs-html="true"
+                 data-bs-trigger="hover" data-bs-content='${tip.replace(/'/g, '&#39;')}'
+                 onclick="selectRptDataset('${_esc(d.name)}')">
+              <span class="text-truncate flex-grow-1">${_esc(d.name)}</span>
+              <span class="badge bg-secondary ms-1" style="font-size:.6rem;">${d.format||'?'}</span>
+              <span style="font-size:.68rem;opacity:.7;white-space:nowrap;">${date.slice(0,10)}</span>
+            </div>`;
+  }).join('');
+
+  // Init Bootstrap popovers on the new items
+  list.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
+    _rptPopovers.push(new bootstrap.Popover(el, { container: 'body', sanitize: false }));
+  });
+}
+
+function _tryParse(val, fallback) {
+  try { return JSON.parse(val); } catch { return fallback; }
+}
+function _esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function selectRptDataset(name) {
+  _rptSelectedName = name;
+  // Re-render list to update highlight
+  filterRptDatasets();
+  document.getElementById('rpt-selected-label').textContent = name;
   try {
-    const { columns } = await fetch(`/api/aggs/persisted/${name}`).then(r => r.json());
+    const { columns } = await fetch(`/api/aggs/persisted/${encodeURIComponent(name)}`).then(r => r.json());
     const strCols = columns.filter(c => c.type === 'string');
     const numCols = columns.filter(c => c.type === 'number');
-    const allCols = columns;
 
     const fill = (id, cols, withNone) => {
       document.getElementById(id).innerHTML =
         (withNone ? '<option value="">— none —</option>' : '') +
         cols.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
     };
-    fill('rpt-x', allCols, false);
-    fill('rpt-y', numCols.length ? numCols : allCols, false);
+    fill('rpt-x', columns, false);
+    fill('rpt-y', numCols.length ? numCols : columns, false);
     fill('rpt-color', strCols, true);
 
-    // Sensible defaults: first string → X, first numeric → Y
-    if (strCols.length) document.getElementById('rpt-x').value = strCols[0].name;
-    if (numCols.length) document.getElementById('rpt-y').value = numCols[0].name;
+    if (strCols.length)   document.getElementById('rpt-x').value     = strCols[0].name;
+    if (numCols.length)   document.getElementById('rpt-y').value     = numCols[0].name;
     if (strCols.length > 1) document.getElementById('rpt-color').value = strCols[1].name;
 
     document.getElementById('rpt-title').value =
@@ -1535,7 +1610,7 @@ async function onRptDatasetChange() {
 }
 
 async function generateChart() {
-  const dataset = document.getElementById('rpt-dataset-select').value;
+  const dataset = _rptSelectedName;
   const x     = document.getElementById('rpt-x').value;
   const y     = document.getElementById('rpt-y').value;
   const color = document.getElementById('rpt-color').value || null;
