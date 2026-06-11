@@ -1103,6 +1103,7 @@ function renderResultsGrid(rows) {
     filter: true,
     resizable: true,
     minWidth: 100,
+    ...(_isDateCol(rows, key) ? { valueFormatter: p => _fmtDate(p.value) } : {}),
   }));
 
   const gridOptions = {
@@ -1172,6 +1173,18 @@ function _collectGridRows(api) {
     rows.push(obj);
   });
   return rows;
+}
+
+const _MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function _fmtDate(val) {
+  if (!val || typeof val !== 'string') return val;
+  const m = val.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return val;
+  return `${m[3]}-${_MONTHS[parseInt(m[2], 10) - 1]}-${m[1]}`;
+}
+function _isDateCol(rows, key) {
+  const sample = rows.find(r => r[key] != null)?.[key];
+  return typeof sample === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sample);
 }
 
 function _buildCsv(rows) {
@@ -1985,6 +1998,7 @@ function renderAggsGrid(rows) {
 
   const colDefs = Object.keys(rows[0]).map(key => ({
     field: key, headerName: key, sortable: true, filter: true, resizable: true, minWidth: 100,
+    ...(_isDateCol(rows, key) ? { valueFormatter: p => _fmtDate(p.value) } : {}),
   }));
 
   const container = document.getElementById('aggs-grid');
