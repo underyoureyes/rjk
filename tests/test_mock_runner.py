@@ -74,21 +74,21 @@ class TestMockRunner:
         assert "message" in rows[0]
 
     def test_seed_daily_sales_row_count(self):
-        sql_path = Path("reports/frosty_treats/sales/daily_product_sales.sql")
+        sql_path = Path("reports/demo/frosty_treats/sales/daily_product_sales.sql")
         if not sql_path.exists():
             pytest.skip("seed file not found")
         rows = MockRunner().run(sql_path, {}, limit=None)
         assert len(rows) == 672  # 8 FLAVOUR × 6 REGION × 14 SALES_DATE
 
     def test_seed_daily_sales_has_month_column(self):
-        sql_path = Path("reports/frosty_treats/sales/daily_product_sales.sql")
+        sql_path = Path("reports/demo/frosty_treats/sales/daily_product_sales.sql")
         if not sql_path.exists():
             pytest.skip("seed file not found")
         rows = MockRunner().run(sql_path, {}, limit=None)
         assert "MONTH" in rows[0]
 
     def test_seed_daily_close_prices_row_count(self):
-        sql_path = Path("reports/stock_market/prices/daily_close_prices.sql")
+        sql_path = Path("reports/demo/stock_market/prices/daily_close_prices.sql")
         if not sql_path.exists():
             pytest.skip("seed file not found")
         rows = MockRunner().run(sql_path, {}, limit=None)

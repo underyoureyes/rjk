@@ -164,10 +164,15 @@ class MockRunner(BaseRunner):
 
     def _load_data_file(self, sql_path: Path, data_file: str) -> list[dict]:
         import json
-        # Resolve relative to project root (parent of the reports directory)
         candidate = Path(data_file)
         if not candidate.is_absolute():
-            candidate = sql_path.parent.parent.parent.parent / data_file
+            # Walk up from the SQL file until we find the project root (contains app.py)
+            root = sql_path.resolve().parent
+            for _ in range(10):
+                if (root / 'app.py').exists():
+                    break
+                root = root.parent
+            candidate = root / data_file
         if not candidate.exists():
             return [{"message": f"data_file not found: {data_file} — run scripts/fetch_real_prices.py"}]
         return json.loads(candidate.read_text(encoding="utf-8"))
