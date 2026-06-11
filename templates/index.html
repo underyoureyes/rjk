@@ -359,26 +359,24 @@
                 <input type="text" class="form-control" id="grid-search" placeholder="Search…"
                        oninput="applyGridSearch(this.value)" disabled>
               </div>
-              <div class="dropdown">
-                <button class="btn btn-sm btn-secondary dropdown-toggle" id="btn-export"
-                        data-bs-toggle="dropdown" data-bs-auto-close="true" disabled>
-                  <i class="bi bi-download me-1"></i>Export
+              <div class="d-flex gap-1 export-btn-group" role="group">
+                <button class="btn btn-sm btn-warning export-btn" id="btn-export-csv"
+                        onclick="exportCsv()" disabled title="Download CSV">
+                  <i class="bi bi-filetype-csv me-1"></i>CSV
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                  <li><button class="dropdown-item small" onclick="exportCsv()">
-                    <i class="bi bi-filetype-csv me-2 text-warning"></i>CSV
-                  </button></li>
-                  <li><button class="dropdown-item small" onclick="exportExcel()">
-                    <i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel
-                  </button></li>
-                  <li><hr class="dropdown-divider"></li>
-                  <li><button class="dropdown-item small" onclick="exportPdf()">
-                    <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF
-                  </button></li>
-                  <li><button class="dropdown-item small" onclick="exportPpt()">
-                    <i class="bi bi-file-earmark-slides me-2" style="color:#c05621;"></i>PowerPoint
-                  </button></li>
-                </ul>
+                <button class="btn btn-sm btn-success export-btn" id="btn-export-xlsx"
+                        onclick="exportExcel()" disabled title="Download Excel">
+                  <i class="bi bi-file-earmark-excel me-1"></i>Excel
+                </button>
+                <button class="btn btn-sm btn-danger export-btn" id="btn-export-pdf"
+                        onclick="exportPdf()" disabled title="Download PDF (landscape A4)">
+                  <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+                </button>
+                <button class="btn btn-sm export-btn" id="btn-export-ppt"
+                        onclick="exportPpt()" disabled title="Download PowerPoint"
+                        style="background:#c05621;color:#fff;border:none;">
+                  <i class="bi bi-file-earmark-slides me-1"></i>PPT
+                </button>
               </div>
               <div class="dropdown">
                 <button class="btn btn-sm btn-info dropdown-toggle" type="button" id="btn-cols"
@@ -916,6 +914,10 @@
 let currentReport   = null;   // { path, title, description, ... }
 let currentMeta     = null;   // full metadata from /api/reports/meta
 let lastRunResult   = null;   // { run_id, rows, row_count }
+function _setExportBtns(disabled) {
+  ['btn-export-csv','btn-export-xlsx','btn-export-pdf','btn-export-ppt']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.disabled = disabled; });
+}
 let lastAggsResult  = null;   // { group_by, value_cols, row_count } — set after agg preview
 let reportGridApi   = null;
 let auditRunsApi    = null;
@@ -1117,7 +1119,7 @@ async function selectReport(report) {
   if (cached) {
     lastRunResult = cached;
     renderResultsGrid(cached.rows);
-    document.getElementById('btn-export').disabled = false;
+    _setExportBtns(false);
   } else {
     lastRunResult = null;
     lastAggsResult = null;
@@ -1131,7 +1133,7 @@ async function selectReport(report) {
     }
     document.getElementById('row-count-badge').style.display = 'none';
     document.getElementById('run-id-badge').style.display = 'none';
-    document.getElementById('btn-export').disabled = true;
+    _setExportBtns(true);
     document.getElementById('btn-cols').disabled = true;
     document.getElementById('col-chooser-list').innerHTML = '';
     const srch = document.getElementById('grid-search');
@@ -1221,7 +1223,7 @@ async function runReport(odbcOverrides) {
 
   log.info(`Running ${currentReport.path} with params: ${JSON.stringify(params)}`);
   document.getElementById('row-count-badge').style.display = 'none';
-  document.getElementById('btn-export').disabled = true;
+  _setExportBtns(true);
   document.getElementById('btn-cols').disabled = true;
 
   const runBtn = document.querySelector('#param-toolbar button.btn-rjk');
@@ -1246,7 +1248,7 @@ async function runReport(odbcOverrides) {
     // Show scan result then render
     _handleScanResult(lastRunResult);
 
-    document.getElementById('btn-export').disabled = false;
+    _setExportBtns(false);
     loadAudit();
   } catch (e) {
     log.error('Run failed: ' + e.message);
