@@ -15,6 +15,7 @@ from RJK.config.loader import Config
 from RJK.discovery.report_discovery import build_report_tree, discover_reports
 from RJK.parser.sql_metadata_parser import parse_sql_metadata
 from RJK.services.aggregation_service import AggregationService
+from RJK.services.chart_service import ChartService, infer_columns
 from RJK.services.export_service import ExportService
 from RJK.services.report_service import ReportService
 from RJK.ui.layout import get_index_html
@@ -30,6 +31,7 @@ audit = AuditService(config.audit_db_path)
 report_service = ReportService(config, audit)
 export_service = ExportService()
 agg_service = AggregationService()
+chart_service = ChartService(geojson_cache_dir=Path(config.audit_db_path).parent / "geojson")
 
 app = FastAPI(title="RJK Reporting Framework", version="1.0.0")
 
@@ -239,6 +241,47 @@ async def _persist_mysql(name, rows, report_path, run_id, group_by, value_cols, 
 @app.get("/api/aggs/persisted")
 def list_persisted_aggs(limit: int = 100):
     return {"items": audit.get_agg_persists(limit)}
+
+
+@app.get("/api/aggs/persisted/{name}")
+def get_persisted_agg(name: str):
+    aggs_dir = Path(config.audit_db_path).parent / "aggs"
+    path = aggs_dir / f"{name}.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Dataset '{name}' not found")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read dataset: {exc}")
+    rows = data.get("rows", [])
+    meta = {k: v for k, v in data.items() if k != "rows"}
+    return {"meta": meta, "columns": infer_columns(rows)}
+
+
+@app.post("/api/reporting/chart")
+async def generate_chart(request: Request):
+    body = await request.json()
+    dataset = (body.get("dataset") or "").strip()
+    chart_type = body.get("chart_type", "bar")
+    x = body.get("x", "")
+    y = body.get("y", "")
+    color = body.get("color") or None
+    title = body.get("title", "")
+    if not dataset or not x or not y:
+        raise HTTPException(status_code=400, detail="dataset, x, and y are required")
+    aggs_dir = Path(config.audit_db_path).parent / "aggs"
+    path = aggs_dir / f"{dataset}.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Dataset '{dataset}' not found")
+    try:
+        rows = json.loads(path.read_text(encoding="utf-8")).get("rows", [])
+        fig = chart_service.build(rows, chart_type, x, y, color, title)
+        return fig
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Chart generation failed")
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.get("/api/about")

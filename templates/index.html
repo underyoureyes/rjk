@@ -448,9 +448,59 @@
 
         <!-- Reporting tab -->
         <div id="tab-reporting" style="display:none;">
-          <div class="empty-state" style="padding-top:60px;">
-            <i class="bi bi-bar-chart-line fs-1 d-block mb-3 text-muted"></i>
-            Reporting — awaiting further development
+          <div class="d-flex gap-3" style="min-height:520px;">
+
+            <!-- ── Controls panel ───────────────────────────────────── -->
+            <div style="width:260px;min-width:260px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;flex-direction:column;gap:.85rem;">
+
+              <div>
+                <label class="form-label fw-semibold small mb-1">Approved Dataset</label>
+                <div class="d-flex gap-1">
+                  <select class="form-select form-select-sm flex-grow-1" id="rpt-dataset-select" onchange="onRptDatasetChange()">
+                    <option value="">— select —</option>
+                  </select>
+                  <button class="btn btn-sm btn-outline-secondary" onclick="loadRptDatasets()" title="Refresh list"><i class="bi bi-arrow-clockwise"></i></button>
+                </div>
+              </div>
+
+              <div>
+                <label class="form-label fw-semibold small mb-1">Chart Type</label>
+                <div id="rpt-type-grid" class="d-flex flex-wrap gap-1"></div>
+              </div>
+
+              <div>
+                <label class="form-label fw-semibold small mb-1">X-Axis / Labels</label>
+                <select class="form-select form-select-sm" id="rpt-x"></select>
+              </div>
+              <div>
+                <label class="form-label fw-semibold small mb-1">Y-Axis / Values</label>
+                <select class="form-select form-select-sm" id="rpt-y"></select>
+              </div>
+              <div>
+                <label class="form-label fw-semibold small mb-1">Group / Colour <span class="text-muted">(optional)</span></label>
+                <select class="form-select form-select-sm" id="rpt-color">
+                  <option value="">— none —</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label fw-semibold small mb-1">Chart Title</label>
+                <input type="text" class="form-control form-control-sm" id="rpt-title" placeholder="Auto">
+              </div>
+
+              <button class="btn btn-rjk btn-sm mt-auto" onclick="generateChart()">
+                <i class="bi bi-play-fill me-1"></i>Generate Chart
+              </button>
+            </div>
+
+            <!-- ── Chart output ─────────────────────────────────────── -->
+            <div id="rpt-chart-panel" style="flex:1;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;align-items:center;justify-content:center;min-height:520px;">
+              <div id="rpt-placeholder" class="text-center" style="color:var(--text-muted);">
+                <i class="bi bi-bar-chart-line" style="font-size:3rem;display:block;margin-bottom:.75rem;"></i>
+                Select a dataset and click <strong>Generate Chart</strong>
+              </div>
+              <div id="rpt-chart" style="width:100%;height:460px;display:none;"></div>
+            </div>
+
           </div>
         </div>
 
@@ -759,6 +809,7 @@ function switchReportTab(tabId) {
     document.getElementById(id).style.display = (id === tabId) ? '' : 'none';
   });
   if (tabId === 'tab-aggs') refreshAggsState();
+  if (tabId === 'tab-reporting') initReportingTab();
 }
 
 document.addEventListener('click', e => {
@@ -1389,6 +1440,150 @@ async function submitPersist() {
     log.error('Persist failed: ' + e.message);
     alert('Persist failed: ' + e.message);
   }
+}
+
+// ============================================================
+// Reporting tab — visual chart builder
+// ============================================================
+const RPT_TYPES = [
+  { id:'bar',       label:'Bar',     icon:'bi-bar-chart-fill' },
+  { id:'bar_h',     label:'H-Bar',   icon:'bi-bar-chart-steps' },
+  { id:'bar_stack', label:'Stack',   icon:'bi-layers-fill' },
+  { id:'pie',       label:'Pie',     icon:'bi-pie-chart-fill' },
+  { id:'donut',     label:'Donut',   icon:'bi-circle' },
+  { id:'line',      label:'Line',    icon:'bi-graph-up' },
+  { id:'scatter',   label:'Scatter', icon:'bi-diagram-3' },
+  { id:'heatmap',   label:'Heatmap', icon:'bi-grid-3x3' },
+  { id:'map',       label:'Map',     icon:'bi-globe2' },
+];
+let _rptChartType  = 'bar';
+let _rptInitDone   = false;
+
+function initReportingTab() {
+  if (!_rptInitDone) {
+    _rptInitDone = true;
+    _renderRptTypeGrid();
+    loadRptDatasets();
+  }
+}
+
+function _renderRptTypeGrid() {
+  document.getElementById('rpt-type-grid').innerHTML = RPT_TYPES.map(t => `
+    <button id="rpt-type-${t.id}"
+      class="btn btn-sm ${t.id === _rptChartType ? 'btn-rjk' : 'btn-outline-secondary'}"
+      style="padding:.2rem .45rem;font-size:.72rem;"
+      onclick="selectRptType('${t.id}')" title="${t.label}">
+      <i class="bi ${t.icon}"></i> ${t.label}
+    </button>`).join('');
+}
+
+function selectRptType(type) {
+  _rptChartType = type;
+  RPT_TYPES.forEach(t => {
+    const b = document.getElementById(`rpt-type-${t.id}`);
+    if (b) b.className = `btn btn-sm ${t.id === type ? 'btn-rjk' : 'btn-outline-secondary'}`;
+    if (b) b.style.cssText = 'padding:.2rem .45rem;font-size:.72rem;';
+  });
+}
+
+async function loadRptDatasets() {
+  const sel = document.getElementById('rpt-dataset-select');
+  try {
+    const { items } = await fetch('/api/aggs/persisted').then(r => r.json());
+    sel.innerHTML = '<option value="">— select dataset —</option>' +
+      items.map(d => {
+        const kb = d.size_bytes ? ` (${(d.size_bytes/1024).toFixed(0)} KB)` : '';
+        const fmt = d.format ? ` [${d.format}]` : '';
+        return `<option value="${d.name}">${d.name}${kb}${fmt}</option>`;
+      }).join('');
+    if (!items.length) {
+      sel.innerHTML = '<option value="">No persisted datasets yet</option>';
+    }
+  } catch (e) {
+    log.error('Failed to load reporting datasets: ' + e.message);
+  }
+}
+
+async function onRptDatasetChange() {
+  const name = document.getElementById('rpt-dataset-select').value;
+  if (!name) return;
+  try {
+    const { columns } = await fetch(`/api/aggs/persisted/${name}`).then(r => r.json());
+    const strCols = columns.filter(c => c.type === 'string');
+    const numCols = columns.filter(c => c.type === 'number');
+    const allCols = columns;
+
+    const fill = (id, cols, withNone) => {
+      document.getElementById(id).innerHTML =
+        (withNone ? '<option value="">— none —</option>' : '') +
+        cols.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+    };
+    fill('rpt-x', allCols, false);
+    fill('rpt-y', numCols.length ? numCols : allCols, false);
+    fill('rpt-color', strCols, true);
+
+    // Sensible defaults: first string → X, first numeric → Y
+    if (strCols.length) document.getElementById('rpt-x').value = strCols[0].name;
+    if (numCols.length) document.getElementById('rpt-y').value = numCols[0].name;
+    if (strCols.length > 1) document.getElementById('rpt-color').value = strCols[1].name;
+
+    document.getElementById('rpt-title').value =
+      name.replace(/_\d{8,}.*$/, '').replace(/_/g, ' ').trim();
+  } catch (e) {
+    log.error('Failed to load dataset columns: ' + e.message);
+  }
+}
+
+async function generateChart() {
+  const dataset = document.getElementById('rpt-dataset-select').value;
+  const x     = document.getElementById('rpt-x').value;
+  const y     = document.getElementById('rpt-y').value;
+  const color = document.getElementById('rpt-color').value || null;
+  const title = document.getElementById('rpt-title').value.trim();
+  if (!dataset || !x || !y) { alert('Select a dataset, X-axis and Y-axis first'); return; }
+
+  log.info(`Generating ${_rptChartType} chart for "${dataset}"`);
+  try {
+    await _ensurePlotly();
+    const res = await fetch('/api/reporting/chart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataset, chart_type: _rptChartType, x, y, color, title }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    const fig = await res.json();
+
+    // Adapt to current theme
+    const isDark = ['darcula','dark','high-contrast'].includes(document.documentElement.dataset.theme);
+    if (isDark) {
+      fig.layout = fig.layout || {};
+      fig.layout.template = 'plotly_dark';
+      fig.layout.paper_bgcolor = 'rgba(0,0,0,0)';
+      fig.layout.plot_bgcolor  = 'rgba(0,0,0,0)';
+      fig.layout.font = { ...(fig.layout.font || {}), color: '#adbac7' };
+    }
+
+    document.getElementById('rpt-placeholder').style.display = 'none';
+    const out = document.getElementById('rpt-chart');
+    out.style.display = '';
+    Plotly.react(out, fig.data, fig.layout, { responsive: true });
+    log.success('Chart generated');
+  } catch (e) {
+    log.error('Chart failed: ' + e.message);
+    alert('Chart failed: ' + e.message);
+  }
+}
+
+// Lazy-load Plotly.js only when the Reporting tab is first used
+function _ensurePlotly() {
+  if (window.Plotly) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2/plotly.min.js';
+    s.onload  = resolve;
+    s.onerror = () => reject(new Error('Failed to load Plotly.js — check your internet connection'));
+    document.head.appendChild(s);
+  });
 }
 
 // ============================================================
