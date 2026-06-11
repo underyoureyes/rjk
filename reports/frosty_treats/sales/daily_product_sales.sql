@@ -1,6 +1,6 @@
 /*
 title: "Ice Cream Daily Sales"
-description: "Units sold, revenue and margin by flavour and region across the last 14 days. Select a sales date to see all data up to and including that day."
+description: "Units sold, revenue and margin by flavour and country across the last 14 days. Select a sales date to see all data up to and including that day."
 owner: "Sales Analytics"
 tags: [sales, daily, ice-cream]
 params:
@@ -20,12 +20,12 @@ mock:
       - Mint Choc Chip
       - Toffee Crunch
     REGION:
-      - North
-      - South
-      - East
-      - West
-      - Midlands
-      - Scotland
+      - United Kingdom
+      - France
+      - Germany
+      - United States
+      - Australia
+      - Canada
     SALES_DATE:
       - "today-13"
       - "today-12"
