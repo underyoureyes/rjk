@@ -539,6 +539,10 @@
                 <i class="bi bi-bar-chart-line" style="font-size:3rem;display:block;margin-bottom:.75rem;"></i>
                 Select a dataset and click <strong>Generate Chart</strong>
               </div>
+              <div id="rpt-generating" class="text-center" style="display:none;color:var(--text-muted);">
+                <div class="spinner-border mb-3" style="width:3rem;height:3rem;color:var(--rjk-blue);" role="status"></div>
+                <div style="font-size:1.1rem;font-weight:600;letter-spacing:.04em;">Generating chart…</div>
+              </div>
               <div id="rpt-chart" style="width:100%;height:460px;display:none;"></div>
             </div>
 
@@ -1740,6 +1744,14 @@ async function generateChart() {
   const show_legend = document.getElementById('rpt-show-legend').checked;
   if (!dataset || !x || !y) { alert('Select a dataset, X-axis and Y-axis first'); return; }
 
+  const elPlaceholder  = document.getElementById('rpt-placeholder');
+  const elGenerating   = document.getElementById('rpt-generating');
+  const elChart        = document.getElementById('rpt-chart');
+
+  elPlaceholder.style.display = 'none';
+  elChart.style.display       = 'none';
+  elGenerating.style.display  = '';
+
   log.info(`Generating ${_rptChartType} chart for "${dataset}"`);
   try {
     await _ensurePlotly();
@@ -1761,12 +1773,13 @@ async function generateChart() {
       fig.layout.font = { ...(fig.layout.font || {}), color: '#adbac7' };
     }
 
-    document.getElementById('rpt-placeholder').style.display = 'none';
-    const out = document.getElementById('rpt-chart');
-    out.style.display = '';
-    Plotly.react(out, fig.data, fig.layout, { responsive: true });
+    elGenerating.style.display = 'none';
+    elChart.style.display = '';
+    Plotly.react(elChart, fig.data, fig.layout, { responsive: true });
     log.success('Chart generated');
   } catch (e) {
+    elGenerating.style.display = 'none';
+    elPlaceholder.style.display = '';
     log.error('Chart failed: ' + e.message);
     alert('Chart failed: ' + e.message);
   }
