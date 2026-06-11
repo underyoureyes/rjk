@@ -153,12 +153,12 @@
   /* Param toolbar */
   #param-toolbar {
     background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px;
-    padding: 10px 14px; display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
+    padding: 6px 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
-  .param-group { display: flex; flex-direction: column; gap: 3px; }
-  .param-group label { font-size: .75rem; font-weight: 600; color: var(--text-label); margin: 0; }
+  .param-group { display: flex; align-items: center; gap: 5px; }
+  .param-group label { font-size: .7rem; font-weight: 600; color: var(--text-label); margin: 0; white-space: nowrap; }
   .param-group input, .param-group select {
-    font-size: .82rem; border: 1px solid var(--input-border); border-radius: 4px; padding: 4px 8px;
+    font-size: .75rem; border: 1px solid var(--input-border); border-radius: 4px; padding: 3px 6px;
     background: var(--bg-panel); color: var(--text-primary);
   }
   .param-group input:focus, .param-group select:focus {
@@ -172,6 +172,34 @@
     padding: 8px 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
   .grid-outer { border: 1px solid var(--border); border-top: none; border-radius: 0 0 6px 6px; overflow: hidden; }
+
+  /* Richer ag-Grid styling */
+  .ag-theme-alpine {
+    --ag-header-background-color: #003087;
+    --ag-header-foreground-color: #ffffff;
+    --ag-header-font-weight: 700;
+    --ag-header-height: 38px;
+    --ag-row-height: 32px;
+    --ag-font-size: 13px;
+    --ag-odd-row-background-color: var(--bg-panel);
+    --ag-row-hover-color: var(--bg-hover);
+    --ag-border-color: var(--border);
+    --ag-cell-horizontal-border: solid var(--border);
+    --ag-range-selection-border-color: #003087;
+  }
+  .ag-theme-alpine .ag-header-cell-text { font-weight: 700; letter-spacing: .03em; font-size: .8rem; }
+  .ag-theme-alpine .ag-row-even { background-color: var(--bg-row-alt, rgba(0,48,135,.04)); }
+  .ag-theme-alpine .ag-cell { font-size: .82rem; }
+  [data-theme="darcula"] .ag-theme-alpine,
+  [data-theme="dark"] .ag-theme-alpine,
+  [data-theme="high-contrast"] .ag-theme-alpine {
+    --ag-header-background-color: #1a3a6b;
+    --ag-background-color: var(--bg-panel);
+    --ag-foreground-color: var(--text-primary);
+    --ag-odd-row-background-color: var(--bg-panel);
+    --ag-row-hover-color: var(--bg-hover);
+    --ag-border-color: var(--border);
+  }
 
   /* Status badge */
   .row-count-badge {
@@ -200,6 +228,7 @@
   .empty-state { color: var(--text-muted); font-size: .85rem; text-align: center; padding: 48px 0; }
   .btn-rjk { background: var(--rjk-blue); color: #fff; border: none; }
   .btn-rjk:hover { background: var(--rjk-blue-hv); color: #fff; }
+  .btn-xs { padding: 1px 6px; font-size: .72rem; line-height: 1.4; }
   [data-theme="high-contrast"] .btn-rjk,
   [data-theme="high-contrast"] .btn-rjk:hover { color: #000; }
 
@@ -245,7 +274,12 @@
   <!-- Sidebar -->
   <div id="sidebar-wrap">
     <div id="sidebar">
-      <div class="sidebar-header">Reports</div>
+      <div class="sidebar-header d-flex align-items-center justify-content-between pe-2">
+      <span>Reports</span>
+      <button class="btn btn-rjk btn-sm" style="padding:1px 7px;font-size:.7rem;" onclick="showCreateReportModal()" title="New report">
+        <i class="bi bi-plus-lg"></i>
+      </button>
+    </div>
       <div id="report-tree">
         <div class="empty-state py-4"><i class="bi bi-hourglass-split me-1"></i>Loading…</div>
       </div>
@@ -271,6 +305,10 @@
       <li class="nav-item">
         <a class="nav-link" href="#" data-tab="tab-logs">
           <i class="bi bi-terminal me-1"></i>Logs</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" data-tab="tab-admin" id="nav-admin">
+          <i class="bi bi-shield-lock me-1"></i>Admin</a>
       </li>
     </ul>
 
@@ -321,18 +359,27 @@
                 <input type="text" class="form-control" id="grid-search" placeholder="Search…"
                        oninput="applyGridSearch(this.value)" disabled>
               </div>
-              <button class="btn btn-sm btn-warning" onclick="exportCsv()" id="btn-csv" disabled>
-                <i class="bi bi-filetype-csv me-1"></i>CSV
-              </button>
-              <button class="btn btn-sm btn-success" onclick="exportExcel()" id="btn-excel" disabled>
-                <i class="bi bi-file-earmark-excel me-1"></i>Excel
-              </button>
-              <button class="btn btn-sm btn-danger" onclick="exportPdf()" id="btn-pdf" disabled>
-                <i class="bi bi-file-earmark-pdf me-1"></i>PDF
-              </button>
-              <button class="btn btn-sm" style="background:#c05621;color:#fff;" onclick="exportPpt()" id="btn-ppt" disabled>
-                <i class="bi bi-file-earmark-slides me-1"></i>PPT
-              </button>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-secondary dropdown-toggle" id="btn-export"
+                        data-bs-toggle="dropdown" data-bs-auto-close="true" disabled>
+                  <i class="bi bi-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><button class="dropdown-item small" onclick="exportCsv()">
+                    <i class="bi bi-filetype-csv me-2 text-warning"></i>CSV
+                  </button></li>
+                  <li><button class="dropdown-item small" onclick="exportExcel()">
+                    <i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel
+                  </button></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><button class="dropdown-item small" onclick="exportPdf()">
+                    <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF
+                  </button></li>
+                  <li><button class="dropdown-item small" onclick="exportPpt()">
+                    <i class="bi bi-file-earmark-slides me-2" style="color:#c05621;"></i>PowerPoint
+                  </button></li>
+                </ul>
+              </div>
               <div class="dropdown">
                 <button class="btn btn-sm btn-info dropdown-toggle" type="button" id="btn-cols"
                         data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" disabled>
@@ -381,6 +428,8 @@
               </div>
             </div>
           </div>
+          <!-- Scan result banner (shown after run if issues found) -->
+          <div id="scan-banner" style="display:none;" class="px-1 pt-1"></div>
           <div class="grid-outer" style="border-radius:0 0 6px 6px;">
             <div id="report-grid" class="ag-theme-alpine grid-wrap"></div>
           </div>
@@ -463,6 +512,8 @@
                 <div id="aggs-grid" class="ag-theme-alpine grid-wrap"></div>
               </div>
             </div>
+            <!-- Control totals check banner -->
+            <div id="aggs-control-banner" style="display:none;" class="mt-2"></div>
             <!-- Agg sign-off bar (shown after aggregation runs) -->
             <div id="aggs-signoff-bar" class="mt-3 p-3 rounded d-flex align-items-center gap-2 flex-wrap" style="background:var(--bg-panel); border:1px solid var(--border); display:none;">
               <i class="bi bi-check-circle-fill" style="color:#3fb950;"></i>
@@ -514,7 +565,7 @@
               </div>
               <div>
                 <label class="form-label fw-semibold small mb-1">Group / Colour <span class="text-muted">(optional)</span></label>
-                <select class="form-select form-select-sm" id="rpt-color">
+                <select class="form-select form-select-sm" id="rpt-color" onchange="_syncLegendToColor()">
                   <option value="">— none —</option>
                 </select>
               </div>
@@ -624,6 +675,91 @@
           </div>
         </div>
 
+      </div>
+    </div>
+
+    <!-- ============================================================
+         TAB: Admin
+    ============================================================ -->
+    <div id="tab-admin" style="display:none;">
+
+      <!-- Status card -->
+      <div id="admin-status-card" class="mb-3 p-3 rounded" style="background:var(--bg-panel); border:1px solid var(--border);">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="section-title mb-0"><i class="bi bi-shield-lock me-1"></i>Access Control</span>
+          <span id="admin-mode-badge" class="badge ms-2"></span>
+        </div>
+        <div id="admin-status-body" class="small" style="color:var(--text-muted);"></div>
+      </div>
+
+      <!-- Folder Rules -->
+      <div class="mb-3 p-3 rounded" style="background:var(--bg-panel); border:1px solid var(--border);">
+        <div class="d-flex align-items-center mb-2">
+          <span class="section-title mb-0">Folder Creation Rules</span>
+          <button class="btn btn-sm btn-rjk ms-auto" onclick="adminAddRule()">
+            <i class="bi bi-plus-lg me-1"></i>Add Rule
+          </button>
+        </div>
+        <p class="small mb-2" style="color:var(--text-muted);">
+          Rules control who may create report folders. Patterns use shell wildcards
+          (<code>*</code> = any, <code>demo/*</code> = subfolders of demo). Most-specific
+          pattern wins. If no rules exist and auth is enabled, all creation is blocked.
+        </p>
+        <div id="admin-rules-table">
+          <div class="text-muted small fst-italic">Loading…</div>
+        </div>
+        <div id="rule-editor-container"></div>
+      </div>
+
+      <!-- Admins -->
+      <div class="mb-3 p-3 rounded" style="background:var(--bg-panel); border:1px solid var(--border);">
+        <span class="section-title d-block mb-2">Admin Access</span>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Unix admin groups <span class="text-muted fw-normal">(comma-separated)</span></label>
+            <input type="text" id="admin-groups-input" class="form-control form-control-sm"
+                   placeholder="rjk_admins, ops"
+                   style="background:var(--bg-input); color:var(--text-primary); border-color:var(--input-border);">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Temporary admin users</label>
+            <div id="admin-temp-users-list" class="d-flex flex-wrap gap-1 mb-1"></div>
+            <div class="input-group input-group-sm">
+              <input type="text" id="admin-temp-user-input" class="form-control"
+                     placeholder="username"
+                     style="background:var(--bg-input); color:var(--text-primary); border-color:var(--input-border);">
+              <input type="text" id="admin-temp-user-note" class="form-control"
+                     placeholder="note (optional)"
+                     style="background:var(--bg-input); color:var(--text-primary); border-color:var(--input-border);">
+              <input type="date" id="admin-temp-user-expires" class="form-control"
+                     title="Expiry date (leave blank = never expires)"
+                     style="background:var(--bg-input); color:var(--text-primary); border-color:var(--input-border);">
+              <button class="btn btn-sm btn-outline-secondary" onclick="adminAddTempAdmin()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Unix groups browser (server only) -->
+      <div class="mb-3 p-3 rounded" style="background:var(--bg-panel); border:1px solid var(--border);">
+        <div class="d-flex align-items-center mb-2">
+          <span class="section-title mb-0">Unix Groups on This Server</span>
+          <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="adminLoadUnixGroups()">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+          </button>
+        </div>
+        <div id="admin-unix-groups-body" class="small" style="color:var(--text-muted);">
+          Click Refresh to load.
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 justify-content-end">
+        <button class="btn btn-sm btn-outline-secondary" onclick="adminLoadConfig()">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>Discard Changes
+        </button>
+        <button class="btn btn-sm btn-rjk" onclick="adminSaveConfig()">
+          <i class="bi bi-floppy me-1"></i>Save Configuration
+        </button>
       </div>
     </div>
 
@@ -832,13 +968,13 @@ function switchTab(tabId) {
   document.querySelectorAll('[data-tab]').forEach(a => a.classList.remove('active'));
   document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
 
-  ['tab-reports', 'tab-audit', 'tab-logs'].forEach(id => {
+  ['tab-reports', 'tab-audit', 'tab-logs', 'tab-admin'].forEach(id => {
     document.getElementById(id).style.display = (id === tabId) ? '' : 'none';
   });
 
-  // Hide sidebar on Logs/Audit; restore user preference elsewhere
+  // Hide sidebar on Logs/Audit/Admin; restore user preference elsewhere
   const sidebar = document.getElementById('sidebar');
-  if (tabId === 'tab-logs' || tabId === 'tab-audit') {
+  if (tabId === 'tab-logs' || tabId === 'tab-audit' || tabId === 'tab-admin') {
     sidebar.classList.add('collapsed');
     document.getElementById('sidebar-toggle').style.display = 'none';
   } else {
@@ -848,6 +984,7 @@ function switchTab(tabId) {
   }
 
   if (tabId === 'tab-audit') loadAudit();
+  if (tabId === 'tab-admin') adminInit();
 }
 
 let _sidebarUserCollapsed = false;
@@ -980,26 +1117,21 @@ async function selectReport(report) {
   if (cached) {
     lastRunResult = cached;
     renderResultsGrid(cached.rows);
-    document.getElementById('btn-csv').disabled = false;
-    document.getElementById('btn-excel').disabled = false;
-    document.getElementById('btn-pdf').disabled = false;
-    document.getElementById('btn-ppt').disabled = false;
+    document.getElementById('btn-export').disabled = false;
   } else {
     lastRunResult = null;
     lastAggsResult = null;
     document.getElementById('aggs-signoff-bar').style.display = 'none';
     document.getElementById('aggs-source-badge').style.display = 'none';
     document.getElementById('aggs-run-id-badge').style.display = 'none';
+    document.getElementById('aggs-control-banner').style.display = 'none';
     if (reportGridApi) {
       reportGridApi.setGridOption('columnDefs', []);
       reportGridApi.setGridOption('rowData', []);
     }
     document.getElementById('row-count-badge').style.display = 'none';
     document.getElementById('run-id-badge').style.display = 'none';
-    document.getElementById('btn-csv').disabled = true;
-    document.getElementById('btn-excel').disabled = true;
-    document.getElementById('btn-pdf').disabled = true;
-    document.getElementById('btn-ppt').disabled = true;
+    document.getElementById('btn-export').disabled = true;
     document.getElementById('btn-cols').disabled = true;
     document.getElementById('col-chooser-list').innerHTML = '';
     const srch = document.getElementById('grid-search');
@@ -1012,6 +1144,8 @@ async function selectReport(report) {
   try {
     const res = await fetch(`/api/reports/meta?path=${encodeURIComponent(report.path)}`);
     currentMeta = await res.json();
+    currentReport.meta = currentMeta;
+    _checkOdbcRequired(currentMeta);
     renderParamToolbar(currentMeta);
     log.debug(`Params: ${Object.keys(currentMeta.params || {}).join(', ') || 'none'}`);
   } catch (e) {
@@ -1030,9 +1164,9 @@ function renderParamToolbar(meta) {
 
   if (!Object.keys(params).length) {
     toolbar.innerHTML = `
-      <span class="text-muted" style="font-size:.82rem;"><i class="bi bi-info-circle me-1"></i>No parameters</span>
-      <div class="param-group ms-auto"><label for="max-rows-input">Max Rows</label><input type="number" id="max-rows-input" value="${maxRowsCurrent}" min="1" style="width:90px;" /></div>
-      <button class="btn btn-sm btn-rjk" onclick="runReport()">
+      <span class="text-muted" style="font-size:.7rem;"><i class="bi bi-info-circle me-1"></i>No parameters</span>
+      <div class="param-group ms-auto"><label for="max-rows-input">Max Rows</label><input type="number" id="max-rows-input" value="${maxRowsCurrent}" min="1" style="width:72px;" /></div>
+      <button class="btn btn-sm btn-rjk ms-1" onclick="runReport()" style="font-size:.75rem;padding:3px 10px;">
         <i class="bi bi-play-fill me-1"></i>Run Report
       </button>`;
     return;
@@ -1046,18 +1180,16 @@ function renderParamToolbar(meta) {
     if (cfg.type === 'date') {
       const todayFmt = flatpickr.formatDate(new Date(), 'd-M-Y');
       const def = cfg.default === 'today' ? todayFmt : (cfg.default || todayFmt);
-      html += `<div class="param-group"><label for="${id}">${label}</label><input type="text" id="${id}" data-param="${key}" value="${def}" placeholder="DD-Mon-YYYY" /></div>`;
+      html += `<div class="param-group"><label for="${id}">${label}</label><input type="text" id="${id}" data-param="${key}" value="${def}" placeholder="DD-Mon-YYYY" style="width:108px;" /></div>`;
     } else {
       html += `<div class="param-group"><label for="${id}">${label}</label><input type="text" id="${id}" data-param="${key}" value="${cfg.default || ''}" /></div>`;
     }
   }
 
-  html += `<div class="param-group"><label for="max-rows-input">Max Rows</label><input type="number" id="max-rows-input" value="${maxRowsCurrent}" min="1" style="width:90px;" /></div>`;
-  html += `<div class="param-group" style="justify-content:flex-end;margin-top:auto;">
-    <button class="btn btn-sm btn-rjk" onclick="runReport()">
-      <i class="bi bi-play-fill me-1"></i>Run Report
-    </button>
-  </div>`;
+  html += `<div class="param-group"><label for="max-rows-input">Max Rows</label><input type="number" id="max-rows-input" value="${maxRowsCurrent}" min="1" style="width:72px;" /></div>`;
+  html += `<button class="btn btn-sm btn-rjk ms-1" onclick="runReport()" style="font-size:.75rem;padding:3px 10px;">
+    <i class="bi bi-play-fill me-1"></i>Run Report
+  </button>`;
 
   toolbar.innerHTML = html;
 
@@ -1080,18 +1212,16 @@ function collectParams() {
 // ============================================================
 // Run report
 // ============================================================
-async function runReport() {
+async function runReport(odbcOverrides) {
   if (!currentReport) return;
+  if (_reportNeedsOdbc && !odbcOverrides) { showOdbcModal(); return; }
   const params = collectParams();
   const _maxRaw = document.getElementById('max-rows-input')?.value.trim();
   const maxRows = _maxRaw === '' || _maxRaw === undefined ? null : (parseInt(_maxRaw) || 2000);
 
   log.info(`Running ${currentReport.path} with params: ${JSON.stringify(params)}`);
   document.getElementById('row-count-badge').style.display = 'none';
-  document.getElementById('btn-csv').disabled = true;
-  document.getElementById('btn-excel').disabled = true;
-  document.getElementById('btn-pdf').disabled = true;
-  document.getElementById('btn-ppt').disabled = true;
+  document.getElementById('btn-export').disabled = true;
   document.getElementById('btn-cols').disabled = true;
 
   const runBtn = document.querySelector('#param-toolbar button.btn-rjk');
@@ -1101,7 +1231,7 @@ async function runReport() {
     const res = await fetch('/api/reports/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: currentReport.path, params, max_rows: maxRows })
+      body: JSON.stringify({ path: currentReport.path, params, max_rows: maxRows, ...(odbcOverrides || {}) })
     });
     if (!res.ok) {
       const err = await res.json();
@@ -1112,13 +1242,11 @@ async function runReport() {
     reportCache[currentReport.path] = lastRunResult;
 
     log.success(`Run #${lastRunResult.run_id} complete — ${lastRunResult.row_count.toLocaleString()} rows`);
-    renderResultsGrid(lastRunResult.rows);
 
-    document.getElementById('btn-csv').disabled = false;
-    document.getElementById('btn-excel').disabled = false;
-    document.getElementById('btn-pdf').disabled = false;
-    document.getElementById('btn-ppt').disabled = false;
+    // Show scan result then render
+    _handleScanResult(lastRunResult);
 
+    document.getElementById('btn-export').disabled = false;
     loadAudit();
   } catch (e) {
     log.error('Run failed: ' + e.message);
@@ -1315,6 +1443,551 @@ function _populateAuditColChooser(api, listId) {
 function auditToggleCol(apiKey, colKey, visible) {
   const api = window[apiKey];
   if (api) api.applyColumnState({ state: [{ colId: colKey, hide: !visible }] });
+}
+
+// ============================================================
+// Data scan
+// ============================================================
+let _cleanseModal = null;
+let _pendingScanRows = null;
+
+function _handleScanResult(result) {
+  const banner = document.getElementById('scan-banner');
+  const scan = result?.scan;
+  banner.style.display = 'none';
+  banner.innerHTML = '';
+
+  if (!scan || scan.clean) {
+    // Clean — show brief success notice then render
+    renderResultsGrid(result.rows);
+    banner.innerHTML = `<div class="alert alert-success alert-dismissible py-1 px-3 mb-1 small" role="alert">
+      <i class="bi bi-shield-check me-1"></i>Data scanned — no sensitive columns detected.
+      <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+    </div>`;
+    banner.style.display = '';
+    return;
+  }
+
+  // Flagged — show modal
+  _pendingScanRows = result.rows;
+  const flags = scan.flags || [];
+  const list = flags.map(f => {
+    const cls = f.severity === 'blocked' ? 'danger' : 'warning';
+    const icon = f.severity === 'blocked' ? 'bi-x-octagon-fill' : 'bi-exclamation-triangle-fill';
+    return `<div class="d-flex align-items-center gap-2 mb-1">
+      <span class="badge bg-${cls}"><i class="bi ${icon} me-1"></i>${f.severity.toUpperCase()}</span>
+      <code>${f.column}</code>
+      <span class="text-muted small">— ${f.reason}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('cleanse-flags-list').innerHTML = list;
+
+  if (!_cleanseModal) _cleanseModal = new bootstrap.Modal(document.getElementById('cleanseModal'));
+  _cleanseModal.show();
+
+  banner.innerHTML = `<div class="alert alert-warning py-1 px-3 mb-1 small" role="alert">
+    <i class="bi bi-shield-exclamation me-1"></i><strong>Sensitive data detected.</strong> ${scan.summary}
+  </div>`;
+  banner.style.display = '';
+}
+
+function _proceedWithAllData() {
+  if (_pendingScanRows) { renderResultsGrid(_pendingScanRows); _pendingScanRows = null; }
+  if (_cleanseModal) _cleanseModal.hide();
+}
+
+function _proceedCleansed() {
+  if (_cleanseModal) _cleanseModal.hide();
+  if (!_pendingScanRows || !lastRunResult?.scan) return;
+  const toRemove = (lastRunResult.scan.flags || []).map(f => f.column);
+  const cleansed = _pendingScanRows.map(row => {
+    const r = { ...row };
+    toRemove.forEach(c => delete r[c]);
+    return r;
+  });
+  _pendingScanRows = null;
+  renderResultsGrid(cleansed);
+  log.warn(`Removed sensitive columns: ${toRemove.join(', ')}`);
+  const banner = document.getElementById('scan-banner');
+  banner.innerHTML = `<div class="alert alert-info py-1 px-3 mb-1 small" role="alert">
+    <i class="bi bi-eraser me-1"></i>Cleansed — removed columns: <strong>${toRemove.join(', ')}</strong>
+  </div>`;
+}
+
+// ============================================================
+// Aggregation control totals check
+// ============================================================
+function _checkAggsControl(rawRows, aggsRows, value_cols) {
+  const banner = document.getElementById('aggs-control-banner');
+  if (!banner) return;
+
+  // Only sum-function columns are reconcilable
+  const sumCols = Object.entries(value_cols).filter(([, fn]) => fn === 'sum').map(([c]) => c);
+  if (!sumCols.length) {
+    banner.style.display = 'none';
+    return;
+  }
+
+  const _sum = (rows, col) => rows.reduce((acc, r) => {
+    const v = parseFloat(r[col]);
+    return acc + (isNaN(v) ? 0 : v);
+  }, 0);
+
+  const checks = sumCols.map(col => {
+    const rawTotal  = _sum(rawRows, col);
+    const aggCol    = `${col.toLowerCase()}_sum`;   // backend renames: COL_sum
+    const aggsTotal = _sum(aggsRows, aggCol);
+    const diff      = Math.abs(rawTotal - aggsTotal);
+    const tol       = rawTotal === 0 ? 0.0001 : Math.abs(rawTotal) * 1e-6;
+    const ok        = diff <= tol;
+    return { col, rawTotal, aggsTotal, diff, ok };
+  });
+
+  const allOk  = checks.every(c => c.ok);
+  const fmt    = n => n.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  const icon   = ok => ok ? '<i class="bi bi-check-circle-fill text-success me-1"></i>'
+                           : '<i class="bi bi-exclamation-triangle-fill text-danger me-1"></i>';
+
+  const rows = checks.map(c => `
+    <tr>
+      <td class="font-monospace small">${c.col}</td>
+      <td class="text-end font-monospace small">${fmt(c.rawTotal)}</td>
+      <td class="text-end font-monospace small">${fmt(c.aggsTotal)}</td>
+      <td class="text-end font-monospace small ${c.ok ? 'text-success' : 'text-danger'}">
+        ${c.ok ? '0.00' : fmt(c.diff)}
+      </td>
+      <td class="text-center">${icon(c.ok)}${c.ok ? 'OK' : 'MISMATCH'}</td>
+    </tr>`).join('');
+
+  const cls   = allOk ? 'success' : 'danger';
+  const title = allOk
+    ? '<i class="bi bi-shield-check me-1"></i>Control totals agree — raw and aggregated sums match.'
+    : '<i class="bi bi-shield-exclamation me-1"></i>Control total mismatch detected — aggregated sums differ from raw data.';
+
+  banner.innerHTML = `
+    <div class="alert alert-${cls} py-2 px-3 mb-0 small">
+      <div class="fw-semibold mb-2">${title}</div>
+      <table class="table table-sm table-borderless mb-0" style="font-size:.78rem;">
+        <thead><tr>
+          <th>Column</th>
+          <th class="text-end">Raw total</th>
+          <th class="text-end">Aggs total</th>
+          <th class="text-end">Difference</th>
+          <th class="text-center">Status</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  banner.style.display = '';
+}
+
+// ============================================================
+// Admin — access control
+// ============================================================
+let _adminCfg = { folder_rules: [], admin_groups: [], admin_temp_users: [] };
+let _adminInitDone = false;
+
+async function adminInit() {
+  if (_adminInitDone) return;
+  _adminInitDone = true;
+  await Promise.all([adminLoadStatus(), adminLoadConfig()]);
+}
+
+async function adminLoadStatus() {
+  try {
+    const s = await fetch('/api/admin/status').then(r => r.json());
+    const badge = document.getElementById('admin-mode-badge');
+    const body  = document.getElementById('admin-status-body');
+    if (s.local_run) {
+      badge.className = 'badge ms-2 bg-secondary';
+      badge.textContent = 'LOCAL — controls disabled';
+      body.innerHTML = `<i class="bi bi-info-circle me-1"></i>
+        Running locally — folder creation is unrestricted.
+        Deploy with <code>AUTH_ENABLED=true</code> to enforce the rules below.`;
+    } else {
+      badge.className = 'badge ms-2 bg-success';
+      badge.textContent = 'SERVER — controls active';
+      const grpStr = s.current_user_groups.length ? s.current_user_groups.join(', ') : 'none';
+      const adminMark = s.is_admin
+        ? '<span class="badge bg-warning text-dark ms-1">admin</span>' : '';
+      body.innerHTML = `<i class="bi bi-person me-1"></i>Logged in as
+        <strong>${s.current_user}</strong>${adminMark}
+        &nbsp;·&nbsp; Groups: <code>${grpStr}</code>
+        &nbsp;·&nbsp; Unix API: ${s.unix_available ? '✓ available' : '✗ not available (Windows)'}`;
+    }
+  } catch (e) { log.error('Admin status: ' + e.message); }
+}
+
+async function adminLoadConfig() {
+  try {
+    _adminCfg = await fetch('/api/admin/config').then(r => r.json());
+    _adminRenderRules();
+    document.getElementById('admin-groups-input').value = (_adminCfg.admin_groups || []).join(', ');
+    _adminRenderTempAdmins();
+  } catch (e) { log.error('Admin config load: ' + e.message); }
+}
+
+function _adminRenderRules() {
+  const el = document.getElementById('admin-rules-table');
+  const rules = _adminCfg.folder_rules || [];
+  if (!rules.length) {
+    el.innerHTML = '<div class="text-muted small fst-italic">No rules defined. Add a rule to control folder creation.</div>';
+    return;
+  }
+  const rows = rules.map((r, i) => {
+    const grps  = (r.unix_groups || []).join(', ') || '<span class="text-muted">—</span>';
+    const temps = (r.temp_users || []).map(u => {
+      const exp = u.expires ? ` <span class="text-muted">(exp ${u.expires})</span>` : '';
+      return `<span class="badge bg-secondary me-1">${u.username}${exp}</span>`;
+    }).join('') || '<span class="text-muted">—</span>';
+    return `<tr>
+      <td class="font-monospace small">${r.folder_pattern}</td>
+      <td class="small">${r.description || '<span class="text-muted">—</span>'}</td>
+      <td class="small">${grps}</td>
+      <td class="small">${temps}</td>
+      <td class="text-end">
+        <button class="btn btn-xs btn-outline-secondary me-1" onclick="adminEditRule(${i})">
+          <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn btn-xs btn-outline-danger" onclick="adminDeleteRule(${i})">
+          <i class="bi bi-trash"></i>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<table class="table table-sm table-hover mb-0" style="font-size:.82rem;">
+    <thead><tr>
+      <th>Folder pattern</th><th>Description</th>
+      <th>Unix groups</th><th>Temp users</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function _adminRenderTempAdmins() {
+  const el = document.getElementById('admin-temp-users-list');
+  const users = _adminCfg.admin_temp_users || [];
+  el.innerHTML = users.map((u, i) => {
+    const exp = u.expires ? ` · exp ${u.expires}` : '';
+    const note = u.note ? ` · ${u.note}` : '';
+    return `<span class="badge bg-warning text-dark d-flex align-items-center gap-1">
+      ${u.username}${note}${exp}
+      <i class="bi bi-x" style="cursor:pointer;" onclick="adminRemoveTempAdmin(${i})"></i>
+    </span>`;
+  }).join('');
+}
+
+function adminAddTempAdmin() {
+  const un = document.getElementById('admin-temp-user-input').value.trim();
+  if (!un) return;
+  const note    = document.getElementById('admin-temp-user-note').value.trim();
+  const expires = document.getElementById('admin-temp-user-expires').value || null;
+  if (!_adminCfg.admin_temp_users) _adminCfg.admin_temp_users = [];
+  _adminCfg.admin_temp_users.push({
+    username: un, note, expires,
+    added: new Date().toISOString().slice(0, 10),
+  });
+  document.getElementById('admin-temp-user-input').value  = '';
+  document.getElementById('admin-temp-user-note').value   = '';
+  document.getElementById('admin-temp-user-expires').value = '';
+  _adminRenderTempAdmins();
+}
+
+function adminRemoveTempAdmin(i) {
+  _adminCfg.admin_temp_users.splice(i, 1);
+  _adminRenderTempAdmins();
+}
+
+function adminAddRule() {
+  _adminOpenRuleModal(-1, {
+    id: '', folder_pattern: '', description: '', unix_groups: [], temp_users: [],
+  });
+}
+
+function adminEditRule(i) {
+  _adminOpenRuleModal(i, _adminCfg.folder_rules[i]);
+}
+
+function adminDeleteRule(i) {
+  if (!confirm(`Delete rule "${_adminCfg.folder_rules[i].folder_pattern}"?`)) return;
+  _adminCfg.folder_rules.splice(i, 1);
+  _adminRenderRules();
+}
+
+// Inline rule editor (modal-less — renders an edit form in a dedicated div)
+let _editingRuleIdx = -1;
+
+function _adminOpenRuleModal(idx, rule) {
+  _editingRuleIdx = idx;
+  const existing = (rule.temp_users || []).map(u => {
+    const exp = u.expires ? ` · exp ${u.expires}` : '';
+    const note = u.note ? ` · ${u.note}` : '';
+    return `<div class="d-flex align-items-center gap-2 mb-1 rule-temp-user-row" data-username="${u.username}">
+      <span class="badge bg-secondary">${u.username}${note}${exp}</span>
+      <input type="hidden" class="ru-username" value="${u.username}">
+      <input type="hidden" class="ru-note"     value="${u.note||''}">
+      <input type="hidden" class="ru-expires"  value="${u.expires||''}">
+      <input type="hidden" class="ru-added"    value="${u.added||''}">
+      <button type="button" class="btn btn-xs btn-outline-danger"
+        onclick="this.closest('.rule-temp-user-row').remove()"><i class="bi bi-x"></i></button>
+    </div>`;
+  }).join('');
+
+  document.getElementById('rule-editor-container').innerHTML = `
+    <div class="card mt-2" style="background:var(--bg-panel); border-color:var(--border);">
+      <div class="card-body">
+        <h6 class="card-title">${idx === -1 ? 'New Rule' : 'Edit Rule'}</h6>
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Folder pattern <span class="text-danger">*</span></label>
+            <input type="text" id="re-pattern" class="form-control form-control-sm" value="${rule.folder_pattern}"
+                   placeholder="* or demo/* or finance/uk/*"
+                   style="background:var(--bg-input);color:var(--text-primary);border-color:var(--input-border);">
+            <div class="form-text">Use <code>*</code> for any text, <code>?</code> for one character.</div>
+          </div>
+          <div class="col-md-8">
+            <label class="form-label small fw-semibold">Description</label>
+            <input type="text" id="re-desc" class="form-control form-control-sm" value="${rule.description||''}"
+                   placeholder="e.g. Finance team reports"
+                   style="background:var(--bg-input);color:var(--text-primary);border-color:var(--input-border);">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Unix groups <span class="text-muted fw-normal">(comma-separated)</span></label>
+            <input type="text" id="re-groups" class="form-control form-control-sm"
+                   value="${(rule.unix_groups||[]).join(', ')}"
+                   placeholder="rjk_users, analysts"
+                   style="background:var(--bg-input);color:var(--text-primary);border-color:var(--input-border);">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Temporary users</label>
+            <div id="re-temp-users-list">${existing}</div>
+            <div class="input-group input-group-sm mt-1">
+              <input type="text" id="re-add-username" class="form-control" placeholder="username"
+                     style="background:var(--bg-input);color:var(--text-primary);border-color:var(--input-border);">
+              <input type="text" id="re-add-note" class="form-control" placeholder="note"
+                     style="background:var(--bg-input);color:var(--text-primary);border-color:var(--input-border);">
+              <input type="date" id="re-add-expires" class="form-control" title="Expiry date"
+                     style="background:var(--bg-input);color:var(--text-primary);border-color:var(--input-border);">
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="_reAddTempUser()">Add</button>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-sm btn-rjk" onclick="_reSave()">
+            <i class="bi bi-check-lg me-1"></i>${idx === -1 ? 'Add Rule' : 'Update Rule'}
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="_reCancel()">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function _reAddTempUser() {
+  const un = document.getElementById('re-add-username').value.trim();
+  if (!un) return;
+  const note    = document.getElementById('re-add-note').value.trim();
+  const expires = document.getElementById('re-add-expires').value || '';
+  const today   = new Date().toISOString().slice(0, 10);
+  document.getElementById('re-temp-users-list').insertAdjacentHTML('beforeend', `
+    <div class="d-flex align-items-center gap-2 mb-1 rule-temp-user-row" data-username="${un}">
+      <span class="badge bg-secondary">${un}${note ? ' · '+note : ''}${expires ? ' · exp '+expires : ''}</span>
+      <input type="hidden" class="ru-username" value="${un}">
+      <input type="hidden" class="ru-note"     value="${note}">
+      <input type="hidden" class="ru-expires"  value="${expires}">
+      <input type="hidden" class="ru-added"    value="${today}">
+      <button type="button" class="btn btn-xs btn-outline-danger"
+        onclick="this.closest('.rule-temp-user-row').remove()"><i class="bi bi-x"></i></button>
+    </div>`);
+  ['re-add-username','re-add-note','re-add-expires'].forEach(id =>
+    document.getElementById(id).value = '');
+}
+
+function _reSave() {
+  const pattern = document.getElementById('re-pattern').value.trim();
+  if (!pattern) { alert('Folder pattern is required'); return; }
+  const groups = document.getElementById('re-groups').value
+    .split(',').map(s => s.trim()).filter(Boolean);
+  const tempRows = document.querySelectorAll('.rule-temp-user-row');
+  const tempUsers = [...tempRows].map(row => ({
+    username: row.querySelector('.ru-username').value,
+    note:     row.querySelector('.ru-note').value,
+    expires:  row.querySelector('.ru-expires').value || null,
+    added:    row.querySelector('.ru-added').value,
+  }));
+  const rule = {
+    id: _editingRuleIdx >= 0
+          ? (_adminCfg.folder_rules[_editingRuleIdx].id || _uuid4())
+          : _uuid4(),
+    folder_pattern: pattern,
+    description: document.getElementById('re-desc').value.trim(),
+    unix_groups: groups,
+    temp_users: tempUsers,
+  };
+  if (_editingRuleIdx === -1) {
+    _adminCfg.folder_rules.push(rule);
+  } else {
+    _adminCfg.folder_rules[_editingRuleIdx] = rule;
+  }
+  _reCancel();
+  _adminRenderRules();
+}
+
+function _reCancel() {
+  document.getElementById('rule-editor-container').innerHTML = '';
+}
+
+function _uuid4() {
+  return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>
+    (c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
+}
+
+async function adminLoadUnixGroups() {
+  const el = document.getElementById('admin-unix-groups-body');
+  el.textContent = 'Loading…';
+  try {
+    const data = await fetch('/api/admin/unix-groups').then(r => r.json());
+    if (!data.unix_available) {
+      el.innerHTML = '<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Unix group API not available on this platform (Windows dev machine).</span>';
+      return;
+    }
+    const groups = data.groups || [];
+    if (!groups.length) { el.textContent = 'No groups found.'; return; }
+    el.innerHTML = groups.map(g =>
+      `<span class="badge bg-secondary me-1 mb-1" title="GID ${g.gid} · ${g.members.length} member(s)">
+        ${g.name} <small class="opacity-75">${g.members.length}</small>
+      </span>`
+    ).join('');
+  } catch (e) { el.textContent = 'Failed: ' + e.message; }
+}
+
+async function adminSaveConfig() {
+  const adminGroupsRaw = document.getElementById('admin-groups-input').value;
+  _adminCfg.admin_groups = adminGroupsRaw.split(',').map(s => s.trim()).filter(Boolean);
+  try {
+    const res = await fetch('/api/admin/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(_adminCfg),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    const data = await res.json();
+    log.success(`Admin config saved — ${data.rules_saved} rule(s)`);
+    _adminInitDone = false;   // force re-fetch next time
+    adminInit();
+  } catch (e) {
+    log.error('Admin save failed: ' + e.message);
+    alert('Save failed: ' + e.message);
+  }
+}
+
+// ============================================================
+// Create Report
+// ============================================================
+let _createReportModal = null;
+
+function showCreateReportModal() {
+  if (!_createReportModal) _createReportModal = new bootstrap.Modal(document.getElementById('createReportModal'));
+  ['cr-folder','cr-name','cr-title','cr-desc','cr-sql','cr-conn'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  const titleEl = document.getElementById('cr-title');
+  delete titleEl.dataset.manualEdit;
+  document.getElementById('cr-params-info').textContent = '';
+  document.getElementById('cr-error').style.display = 'none';
+  _createReportModal.show();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const t = document.getElementById('cr-title');
+  if (t) t.addEventListener('input', () => { t.dataset.manualEdit = '1'; });
+});
+
+function crAutoTitle() {
+  const name = document.getElementById('cr-name').value;
+  const titleEl = document.getElementById('cr-title');
+  if (!titleEl.dataset.manualEdit)
+    titleEl.value = name.replace(/[_\-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function crDetectParams() {
+  const sql = document.getElementById('cr-sql').value;
+  const params = [...new Set((sql.match(/:([a-zA-Z_]\w*)/g) || []).map(p => p.slice(1)))];
+  const el = document.getElementById('cr-params-info');
+  el.innerHTML = params.length
+    ? `<i class="bi bi-braces me-1"></i>Detected params: ${params.map(p => `<code>${p}</code>`).join(', ')} — added to toolbar automatically.`
+    : '';
+}
+
+async function createReport() {
+  const folder = document.getElementById('cr-folder').value.trim();
+  const name   = document.getElementById('cr-name').value.trim();
+  const title  = document.getElementById('cr-title').value.trim();
+  const desc   = document.getElementById('cr-desc').value.trim();
+  const sql    = document.getElementById('cr-sql').value.trim();
+  const conn   = document.getElementById('cr-conn').value.trim();
+  const errEl  = document.getElementById('cr-error');
+  errEl.style.display = 'none';
+  if (!folder) { errEl.textContent = 'Folder path is required.'; errEl.style.display = ''; return; }
+  if (!name)   { errEl.textContent = 'File name is required.';   errEl.style.display = ''; return; }
+  if (!sql)    { errEl.textContent = 'SQL is required.';          errEl.style.display = ''; return; }
+  log.info('Creating report…');
+  try {
+    const res = await fetch('/api/reports/create', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder, name, title: title || name, description: desc, conn_string: conn, sql }),
+    });
+    if (!res.ok) { const e = await res.json(); errEl.textContent = e.detail || res.statusText; errEl.style.display = ''; return; }
+    const data = await res.json();
+    _createReportModal.hide();
+    log.success(`Report created: ${data.path}`);
+    await loadReports();
+    const el = document.querySelector(`.tree-report[data-path="${data.path}"]`);
+    if (el) el.click();
+  } catch (e) { errEl.textContent = 'Failed: ' + e.message; errEl.style.display = ''; }
+}
+
+// ============================================================
+// ODBC Credentials
+// ============================================================
+let _odbcModal = null;
+let _reportNeedsOdbc = false;
+
+function _checkOdbcRequired(meta) {
+  _reportNeedsOdbc = !!(meta?.connection?.conn_string);
+}
+
+function showOdbcModal() {
+  if (!_odbcModal) _odbcModal = new bootstrap.Modal(document.getElementById('odbcModal'));
+  document.getElementById('odbc-conn-display').value = currentReport?.meta?.connection?.conn_string || '';
+  document.getElementById('odbc-user-input').value = '';
+  document.getElementById('odbc-pwd-input').value = '';
+  document.getElementById('odbc-test-result').textContent = '';
+  _odbcModal.show();
+}
+
+async function testOdbcConnection() {
+  const conn = document.getElementById('odbc-conn-display').value.trim();
+  const user = document.getElementById('odbc-user-input').value.trim();
+  const pwd  = document.getElementById('odbc-pwd-input').value;
+  const el   = document.getElementById('odbc-test-result');
+  el.textContent = 'Testing…'; el.className = 'small mt-2 text-muted';
+  try {
+    const res = await fetch('/api/reports/test-connection', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conn_string: conn, username: user, password: pwd }),
+    });
+    const d = await res.json();
+    if (res.ok) { el.textContent = '✓ ' + d.message; el.className = 'small mt-2 text-success fw-semibold'; }
+    else        { el.textContent = '✗ ' + (d.detail || res.statusText); el.className = 'small mt-2 text-danger'; }
+  } catch (e) { el.textContent = '✗ ' + e.message; el.className = 'small mt-2 text-danger'; }
+}
+
+async function runWithOdbc() {
+  const conn = document.getElementById('odbc-conn-display').value.trim();
+  const user = document.getElementById('odbc-user-input').value.trim();
+  const pwd  = document.getElementById('odbc-pwd-input').value;
+  if (_odbcModal) _odbcModal.hide();
+  await runReport({ conn_string: conn, username: user, password: pwd });
 }
 
 function exportCsv() {
@@ -1605,6 +2278,11 @@ function initReportingTab() {
   }
 }
 
+function _syncLegendToColor() {
+  const hasColor = !!document.getElementById('rpt-color').value;
+  document.getElementById('rpt-show-legend').checked = hasColor;
+}
+
 function _renderRptTypeGrid() {
   document.getElementById('rpt-type-grid').innerHTML = RPT_TYPES.map(t => `
     <button id="rpt-type-${t.id}"
@@ -1727,6 +2405,8 @@ async function selectRptDataset(name) {
     if (strCols.length)   document.getElementById('rpt-x').value     = strCols[0].name;
     if (numCols.length)   document.getElementById('rpt-y').value     = numCols[0].name;
     if (strCols.length > 1) document.getElementById('rpt-color').value = strCols[1].name;
+
+    _syncLegendToColor();
 
     document.getElementById('rpt-title').value =
       name.replace(/_\d{8,}.*$/, '').replace(/_/g, ' ').trim();
@@ -2025,6 +2705,7 @@ async function previewAggregation() {
     document.getElementById('aggs-run-id-badge').style.display = '';
     document.getElementById('aggs-search').value = '';
     renderAggsGrid(data.rows);
+    _checkAggsControl(lastRunResult.rows, data.rows, value_cols);
     const persistBtn = document.getElementById('persist-btn');
     persistBtn.disabled = true;
     persistBtn.title = 'Sign off the aggregation before persisting';
@@ -2037,6 +2718,7 @@ async function previewAggregation() {
     document.getElementById('aggs-signoff-bar').style.display = 'none';
     document.getElementById('aggs-source-badge').style.display = 'none';
     document.getElementById('aggs-run-id-badge').style.display = 'none';
+    document.getElementById('aggs-control-banner').style.display = 'none';
     log.error('Aggregation failed: ' + e.message);
     alert('Aggregation failed: ' + e.message);
   } finally {
@@ -2213,5 +2895,134 @@ function initEmptyAuditGrids() {
   });
 }
 </script>
+
+<!-- ============================================================
+     Data Cleanse Modal
+============================================================ -->
+<div class="modal fade" id="cleanseModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-warning-subtle">
+        <h5 class="modal-title"><i class="bi bi-shield-exclamation me-2 text-warning"></i>Sensitive Data Detected</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small mb-3">The dataset was scanned and the following columns were flagged. You can remove them before the data is displayed or persisted, or proceed with all data.</p>
+        <div id="cleanse-flags-list" class="mb-3"></div>
+        <div class="form-text"><i class="bi bi-info-circle me-1"></i>Blocked columns (red) contain restricted keywords. Warning columns (yellow) form a PII combination together.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal" onclick="_proceedWithAllData()">
+          Proceed with all data
+        </button>
+        <button class="btn btn-sm btn-warning" onclick="_proceedCleansed()">
+          <i class="bi bi-eraser me-1"></i>Remove flagged columns &amp; proceed
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     Create Report Modal
+============================================================ -->
+<div class="modal fade" id="createReportModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>New Report</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2 mb-2">
+          <div class="col-5">
+            <label class="form-label fw-semibold small">Folder Path <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-sm" id="cr-folder" placeholder="e.g. demo/my_company/sales">
+            <div class="form-text" style="font-size:.68rem;">Sub-path within reports/ — use / for nesting</div>
+          </div>
+          <div class="col-3">
+            <label class="form-label fw-semibold small">File Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-sm" id="cr-name" placeholder="e.g. monthly_sales" oninput="crAutoTitle()">
+            <div class="form-text" style="font-size:.68rem;">.sql appended automatically</div>
+          </div>
+          <div class="col-4">
+            <label class="form-label fw-semibold small">Display Title</label>
+            <input type="text" class="form-control form-control-sm" id="cr-title" placeholder="Auto">
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold small">Description</label>
+          <input type="text" class="form-control form-control-sm" id="cr-desc" placeholder="What this report shows (optional)">
+        </div>
+        <div class="mb-1">
+          <label class="form-label fw-semibold small">SQL <span class="text-danger">*</span></label>
+          <textarea class="form-control font-monospace" id="cr-sql" rows="12" style="font-size:.78rem;resize:vertical;"
+            placeholder="Paste your ANSI SQL here…&#10;&#10;Use :param_name for parameters, e.g.&#10;  WHERE report_date = :report_date"
+            oninput="crDetectParams()"></textarea>
+        </div>
+        <div id="cr-params-info" class="form-text mb-2" style="font-size:.7rem;min-height:1.2rem;"></div>
+        <details>
+          <summary class="fw-semibold small" style="cursor:pointer;user-select:none;">
+            <i class="bi bi-database me-1"></i>Database Connection
+            <span class="text-muted fw-normal"> (optional — required for live data)</span>
+          </summary>
+          <div class="mt-2">
+            <label class="form-label small">ODBC Connection String</label>
+            <input type="text" class="form-control form-control-sm font-monospace" id="cr-conn"
+                   placeholder="Driver={SQL Server};Server=host;Database=mydb;">
+            <div class="form-text" style="font-size:.68rem;">Stored in the report file. Password is never stored — you will be prompted at run time.</div>
+          </div>
+        </details>
+      </div>
+      <div class="modal-footer">
+        <div id="cr-error" class="text-danger small me-auto" style="display:none;"></div>
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-rjk btn-sm" onclick="createReport()">
+          <i class="bi bi-plus-circle me-1"></i>Create Report
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     ODBC Credentials Modal
+============================================================ -->
+<div class="modal fade" id="odbcModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-database-lock me-2"></i>Database Credentials</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-3">This report connects directly to a database. Enter your credentials below.</p>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Connection String</label>
+          <input type="text" class="form-control form-control-sm font-monospace" id="odbc-conn-display" readonly>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Username</label>
+          <input type="text" class="form-control form-control-sm" id="odbc-user-input" autocomplete="username">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Password</label>
+          <input type="password" class="form-control form-control-sm" id="odbc-pwd-input" autocomplete="current-password">
+        </div>
+        <div id="odbc-test-result" class="small mt-2" style="min-height:1.4rem;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-outline-secondary" onclick="testOdbcConnection()">
+          <i class="bi bi-plug me-1"></i>Test Connection
+        </button>
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-rjk btn-sm" onclick="runWithOdbc()">
+          <i class="bi bi-play-fill me-1"></i>Run Report
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

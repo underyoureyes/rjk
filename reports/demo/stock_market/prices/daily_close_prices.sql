@@ -1,8 +1,8 @@
 /*
 title: "Daily Close Prices"
-description: "Daily closing prices for Palantir Technologies (PLTR) and Alphabet / Google (GOOGL) over the last 2 years. Select an as-of date to see all trading days up to that point."
+description: "Daily closing prices for 7 fictional equities (A123, G123, M123, ME123, N123, P123, T123) over the last 2 years. Select an as-of date to see all trading days up to that point."
 owner: "Market Data"
-tags: [stocks, prices, PLTR, GOOGL, equities]
+tags: [stocks, prices, equities]
 params:
   as_of_date:
     type: date

@@ -1,6 +1,9 @@
 import io
 import json
+import re
 import sys
+import uuid
+import yaml
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -14,8 +17,10 @@ from RJK.audit.audit_service import AuditService
 from RJK.config.loader import Config
 from RJK.discovery.report_discovery import build_report_tree, discover_reports
 from RJK.parser.sql_metadata_parser import parse_sql_metadata
+from RJK.services.access_service import AccessService, AclConfig, FolderRule, TempUser
 from RJK.services.aggregation_service import AggregationService
 from RJK.services.chart_service import ChartService, infer_columns
+from RJK.services.data_scanner import get_scanner
 from RJK.services.export_service import ExportService
 from RJK.services.report_service import ReportService
 from RJK.ui.layout import get_index_html
@@ -29,6 +34,7 @@ for warning in config.validate():
 
 audit = AuditService(config.audit_db_path)
 report_service = ReportService(config, audit)
+access_service = AccessService(config.acl_path, auth_enabled=config.auth_enabled)
 export_service = ExportService()
 agg_service = AggregationService()
 chart_service = ChartService(geojson_cache_dir=Path(config.audit_db_path).parent / "geojson")
@@ -61,16 +67,32 @@ def get_report_meta(path: str):
 
 @app.post("/api/reports/run")
 async def run_report(request: Request):
-    body = await request.json()
-    path = body.get("path")
-    params = body.get("params", {})
-    run_by = body.get("run_by", "anonymous")
-    max_rows = body.get("max_rows")
+    body        = await request.json()
+    path        = body.get("path")
+    params      = body.get("params", {})
+    run_by      = body.get("run_by", "anonymous")
+    max_rows    = body.get("max_rows")
+    conn_string = body.get("conn_string") or None
+    username    = body.get("username") or None
+    password    = body.get("password") or None
     max_rows = None if max_rows is None else int(max_rows)
     if not path:
         raise HTTPException(status_code=400, detail="path is required")
     try:
-        result = report_service.run_report(path, params, run_by, max_rows)
+        result = report_service.run_report(
+            path, params, run_by, max_rows,
+            conn_string=conn_string, username=username, password=password,
+        )
+        # Scan columns for sensitive data and attach result
+        if result["rows"]:
+            scan = get_scanner().scan_columns(list(result["rows"][0].keys()))
+            result["scan"] = {
+                "clean": scan.clean,
+                "flags": [{"column": f.column, "reason": f.reason, "severity": f.severity} for f in scan.flags],
+                "summary": scan.summary(),
+            }
+        else:
+            result["scan"] = {"clean": True, "flags": [], "summary": "No data returned."}
         return result
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
@@ -175,6 +197,98 @@ async def export_ppt(request: Request):
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.get("/api/reports/scan-config")
+def scan_config():
+    from RJK.services.data_scanner import RESTRICTED_KEYWORDS, PII_COMBINATION_KEYWORDS, PII_COMBO_THRESHOLD
+    return {
+        "restricted_keywords": RESTRICTED_KEYWORDS,
+        "pii_combination_keywords": PII_COMBINATION_KEYWORDS,
+        "pii_combo_threshold": PII_COMBO_THRESHOLD,
+    }
+
+
+@app.post("/api/reports/create")
+async def create_report(request: Request):
+    body        = await request.json()
+    folder      = (body.get("folder") or "").strip().strip("/")
+    name        = (body.get("name") or "").strip()
+    title       = (body.get("title") or name).strip()
+    description = (body.get("description") or "").strip()
+    owner       = (body.get("owner") or "").strip()
+    conn_string = (body.get("conn_string") or "").strip()
+    sql_text    = (body.get("sql") or "").strip()
+
+    if not folder:
+        raise HTTPException(status_code=400, detail="folder is required")
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    if not sql_text:
+        raise HTTPException(status_code=400, detail="sql is required")
+
+    request_user = access_service.get_current_user(dict(request.headers))
+    allowed, reason = access_service.can_create_folder(request_user, folder)
+    if not allowed:
+        raise HTTPException(status_code=403, detail=f"Access denied: {reason}")
+
+    safe_name = re.sub(r"[^\w\-]", "_", name).lower()
+    if not safe_name.endswith(".sql"):
+        safe_name += ".sql"
+
+    report_dir  = config.reports_root / folder
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_file = report_dir / safe_name
+    if report_file.exists():
+        raise HTTPException(status_code=409, detail=f"Report already exists: {folder}/{safe_name}")
+
+    detected_params = list(dict.fromkeys(re.findall(r":([a-zA-Z_]\w*)", sql_text)))
+
+    meta: dict = {"title": title}
+    if description:
+        meta["description"] = description
+    if owner:
+        meta["owner"] = owner
+    if conn_string:
+        meta["connection"] = {"conn_string": conn_string}
+    if detected_params:
+        meta["params"] = {
+            p: {"type": "text", "label": p.replace("_", " ").title(), "default": ""}
+            for p in detected_params
+        }
+
+    yaml_block   = yaml.dump(meta, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    file_content = f"/*\n{yaml_block}*/\n\n{sql_text}\n"
+    report_file.write_text(file_content, encoding="utf-8")
+
+    report_path = str(Path(folder) / safe_name).replace("\\", "/")
+    logger.info("Created new report: %s", report_path)
+    return {"path": report_path, "filename": safe_name, "folder": folder}
+
+
+@app.post("/api/reports/test-connection")
+async def test_odbc_connection(request: Request):
+    body        = await request.json()
+    conn_string = (body.get("conn_string") or "").strip()
+    username    = (body.get("username") or "").strip()
+    password    = (body.get("password") or "").strip()
+    if not conn_string:
+        raise HTTPException(status_code=400, detail="conn_string is required")
+    try:
+        import pyodbc
+    except ImportError:
+        raise HTTPException(status_code=500, detail="pyodbc is not installed on this server")
+    try:
+        kwargs: dict = {}
+        if username:
+            kwargs["uid"] = username
+        if password:
+            kwargs["pwd"] = password
+        conn = pyodbc.connect(conn_string, timeout=10, **kwargs)
+        conn.close()
+        return {"status": "ok", "message": "Connection successful"}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Connection failed: {exc}")
 
 
 @app.get("/api/config/persist-options")
@@ -352,3 +466,66 @@ async def signoff(request: Request):
         raise HTTPException(status_code=400, detail="run_id and report_path are required")
     signoff_id = audit.log_signoff(int(run_id), report_path, signed_off_by, notes, params)
     return {"signoff_id": signoff_id, "status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Admin — access control
+# ---------------------------------------------------------------------------
+
+@app.get("/api/admin/status")
+async def admin_status(request: Request):
+    username = access_service.get_current_user(dict(request.headers))
+    user_groups = access_service.get_unix_groups(username)
+    cfg = access_service.load_config()
+    return {
+        "auth_enabled": access_service.auth_enabled,
+        "local_run": not access_service.auth_enabled,
+        "unix_available": _UNIX_AVAILABLE,
+        "current_user": username,
+        "current_user_groups": user_groups,
+        "is_admin": access_service.is_admin(username, user_groups=user_groups, cfg=cfg),
+    }
+
+
+@app.get("/api/admin/config")
+def admin_get_config():
+    cfg = access_service.load_config()
+    return access_service.config_to_dict(cfg)
+
+
+@app.put("/api/admin/config")
+async def admin_save_config(request: Request):
+    body = await request.json()
+    try:
+        rules = []
+        for r in body.get("folder_rules", []):
+            temp_users = [TempUser(**u) for u in r.get("temp_users", [])]
+            rules.append(FolderRule(
+                id=r.get("id") or str(uuid.uuid4())[:8],
+                folder_pattern=r.get("folder_pattern", "*"),
+                description=r.get("description", ""),
+                unix_groups=r.get("unix_groups", []),
+                temp_users=temp_users,
+            ))
+        admin_tu = [TempUser(**u) for u in body.get("admin_temp_users", [])]
+        cfg = AclConfig(
+            folder_rules=rules,
+            admin_groups=body.get("admin_groups", []),
+            admin_temp_users=admin_tu,
+        )
+        access_service.save_config(cfg)
+        return {"status": "ok", "rules_saved": len(rules)}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/admin/unix-groups")
+def admin_unix_groups():
+    return {"groups": access_service.list_system_groups(), "unix_available": _UNIX_AVAILABLE}
+
+
+try:
+    import grp as _grp_check
+    _UNIX_AVAILABLE = True
+except ImportError:
+    _UNIX_AVAILABLE = False

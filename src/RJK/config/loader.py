@@ -14,6 +14,11 @@ class Config:
     audit_db_path: Path = field(default_factory=lambda: Path(os.getenv("AUDIT_DB_PATH", "data/audit.db")))
     mock_mode: bool = field(default_factory=lambda: os.getenv("MOCK_MODE", "true").lower() == "true")
     mysql_url: str = field(default_factory=lambda: os.getenv("MYSQL_URL", ""))
+    auth_enabled: bool = field(default_factory=lambda: os.getenv("AUTH_ENABLED", "false").lower() == "true")
+
+    @property
+    def acl_path(self) -> Path:
+        return Path(self.audit_db_path).parent / "acl.json"
 
     def validate(self) -> list[str]:
         warnings = []

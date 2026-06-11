@@ -50,19 +50,19 @@ class TestListReports:
 
     def test_report_paths(self, client):
         paths = {r["path"] for r in client.get("/api/reports").json()["reports"]}
-        assert "frosty_treats/sales/daily_product_sales.sql" in paths
+        assert "demo/frosty_treats/sales/daily_product_sales.sql" in paths
 
 
 class TestReportMeta:
     def test_known_report(self, client):
-        res = client.get("/api/reports/meta?path=frosty_treats/sales/daily_product_sales.sql")
+        res = client.get("/api/reports/meta?path=demo/frosty_treats/sales/daily_product_sales.sql")
         assert res.status_code == 200
         meta = res.json()
         assert meta["title"] == "Ice Cream Daily Sales"
         assert "sales_date" in meta["params"]
 
     def test_mock_block_not_exposed(self, client):
-        res = client.get("/api/reports/meta?path=frosty_treats/sales/daily_product_sales.sql")
+        res = client.get("/api/reports/meta?path=demo/frosty_treats/sales/daily_product_sales.sql")
         assert "mock" not in res.json()
 
     def test_unknown_report_404(self, client):
@@ -73,7 +73,7 @@ class TestReportMeta:
 class TestRunReport:
     def test_run_returns_rows(self, client):
         res = client.post("/api/reports/run", json={
-            "path": "frosty_treats/sales/daily_product_sales.sql",
+            "path": "demo/frosty_treats/sales/daily_product_sales.sql",
             "params": {"sales_date": "today"}
         })
         assert res.status_code == 200
@@ -94,7 +94,7 @@ class TestRunReport:
 class TestExportCsv:
     def test_returns_csv(self, client):
         res = client.post("/api/reports/export/csv", json={
-            "path": "frosty_treats/sales/daily_product_sales.sql",
+            "path": "demo/frosty_treats/sales/daily_product_sales.sql",
             "params": {}
         })
         assert res.status_code == 200
@@ -104,7 +104,7 @@ class TestExportCsv:
 
     def test_csv_has_header(self, client):
         res = client.post("/api/reports/export/csv", json={
-            "path": "frosty_treats/sales/daily_product_sales.sql",
+            "path": "demo/frosty_treats/sales/daily_product_sales.sql",
             "params": {}
         })
         header = res.text.splitlines()[0]
@@ -114,7 +114,7 @@ class TestExportCsv:
 class TestExportExcel:
     def test_returns_xlsx(self, client):
         res = client.post("/api/reports/export/excel", json={
-            "path": "frosty_treats/sales/daily_product_sales.sql",
+            "path": "demo/frosty_treats/sales/daily_product_sales.sql",
             "params": {}
         })
         assert res.status_code == 200
@@ -130,7 +130,7 @@ class TestAudit:
 
     def test_run_appears_in_audit(self, client):
         client.post("/api/reports/run", json={
-            "path": "frosty_treats/sales/daily_product_sales.sql",
+            "path": "demo/frosty_treats/sales/daily_product_sales.sql",
             "params": {}
         })
         data = client.get("/api/audit").json()
@@ -141,13 +141,13 @@ class TestAudit:
 class TestSignoff:
     def test_signoff_recorded(self, client):
         run_res = client.post("/api/reports/run", json={
-            "path": "frosty_treats/sales/daily_product_sales.sql",
+            "path": "demo/frosty_treats/sales/daily_product_sales.sql",
             "params": {}
         })
         run_id = run_res.json()["run_id"]
         so_res = client.post("/api/signoff", json={
             "run_id": run_id,
-            "report_path": "frosty_treats/sales/daily_product_sales.sql",
+            "report_path": "demo/frosty_treats/sales/daily_product_sales.sql",
             "signed_off_by": "alice",
             "notes": "Looks good"
         })

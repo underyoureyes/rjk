@@ -45,8 +45,8 @@ class TestDiscoverReports:
         reports = discover_reports(root)
         assert len(reports) == 2
         paths = {r["path"] for r in reports}
-        assert "frosty_treats/sales/daily_product_sales.sql" in paths
-        assert "stock_market/prices/daily_close_prices.sql" in paths
+        assert "demo/frosty_treats/sales/daily_product_sales.sql" in paths
+        assert "demo/stock_market/prices/daily_close_prices.sql" in paths
 
 
 class TestBuildReportTree:

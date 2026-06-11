@@ -28,10 +28,24 @@ class ReportService:
     def get_metadata(self, report_path: str) -> dict:
         return parse_sql_metadata(self._resolve_path(report_path))
 
-    def run_report(self, report_path: str, params: dict, run_by: str = "anonymous", limit: int | None = 2000) -> dict:
+    def run_report(
+        self,
+        report_path: str,
+        params: dict,
+        run_by: str = "anonymous",
+        limit: int | None = 2000,
+        conn_string: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+    ) -> dict:
         sql_path = self._resolve_path(report_path)
         try:
-            rows = self.runner.run(sql_path, params, limit)
+            if conn_string:
+                runner: BaseRunner = OdbcRunner(conn_string)
+                rows = runner.run(sql_path, params, limit,
+                                  conn_string=conn_string, username=username, password=password)
+            else:
+                rows = self.runner.run(sql_path, params, limit)
             run_id = self.audit.log_run(report_path, params, run_by, len(rows), "success")
             return {"run_id": run_id, "rows": rows, "row_count": len(rows)}
         except Exception as exc:
