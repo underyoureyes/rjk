@@ -514,7 +514,7 @@
               </div>
               <div>
                 <label class="form-label fw-semibold small mb-1">Group / Colour <span class="text-muted">(optional)</span></label>
-                <select class="form-select form-select-sm" id="rpt-color">
+                <select class="form-select form-select-sm" id="rpt-color" onchange="_syncLegendToColor()">
                   <option value="">— none —</option>
                 </select>
               </div>
@@ -1603,6 +1603,11 @@ function initReportingTab() {
   }
 }
 
+function _syncLegendToColor() {
+  const hasColor = !!document.getElementById('rpt-color').value;
+  document.getElementById('rpt-show-legend').checked = hasColor;
+}
+
 function _renderRptTypeGrid() {
   document.getElementById('rpt-type-grid').innerHTML = RPT_TYPES.map(t => `
     <button id="rpt-type-${t.id}"
@@ -1725,6 +1730,8 @@ async function selectRptDataset(name) {
     if (strCols.length)   document.getElementById('rpt-x').value     = strCols[0].name;
     if (numCols.length)   document.getElementById('rpt-y').value     = numCols[0].name;
     if (strCols.length > 1) document.getElementById('rpt-color').value = strCols[1].name;
+
+    _syncLegendToColor();
 
     document.getElementById('rpt-title').value =
       name.replace(/_\d{8,}.*$/, '').replace(/_/g, ' ').trim();
