@@ -9,50 +9,11 @@ params:
     label: "As Of Date"
     default: "today"
 mock:
-  dimensions:
-    TICKER:
-      - PLTR
-      - GOOGL
-      - AAPL
-      - TSLA
-      - MSFT
-      - NVDA
-      - META
-    CLOSE_DATE:
-      date_range:
-        start: "today-730"
-        end: "today"
-        freq: "weekday"
-    REPORT_DATE:
-      - "today"
+  data_file: "data/mock/daily_close_prices.json"
   filters:
     as_of_date:
       column: CLOSE_DATE
       op: "<="
-  derived:
-    MONTH:
-      month_start_of: CLOSE_DATE
-  numerics:
-    OPEN_PRICE:
-      min: 5.00
-      max: 210.00
-      decimals: 2
-    HIGH_PRICE:
-      min: 5.00
-      max: 215.00
-      decimals: 2
-    LOW_PRICE:
-      min: 5.00
-      max: 205.00
-      decimals: 2
-    CLOSE_PRICE:
-      min: 5.00
-      max: 210.00
-      decimals: 2
-    VOLUME:
-      min: 8000000
-      max: 120000000
-      decimals: 0
 */
 
 SELECT

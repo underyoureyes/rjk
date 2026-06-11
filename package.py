@@ -24,6 +24,8 @@ APP_FILES = [
     "CLAUDE.md",
     "reports/frosty_treats/sales/daily_product_sales.sql",
     "reports/stock_market/prices/daily_close_prices.sql",
+    "data/mock/daily_close_prices.json",
+    "scripts/fetch_real_prices.py",
     "src/RJK/__init__.py",
     "src/RJK/audit/__init__.py",
     "src/RJK/audit/audit_service.py",

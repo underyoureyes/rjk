@@ -1,6 +1,8 @@
 .env
 *.db
-data/
+data/*
+!data/mock/
+!data/mock/*.json
 __pycache__/
 *.pyc
 *.pyo

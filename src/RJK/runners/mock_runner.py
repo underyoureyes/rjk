@@ -100,9 +100,17 @@ class MockRunner(BaseRunner):
     def run(self, sql_path: Path, params: dict, limit: int | None = 2000) -> list[dict]:
         meta = parse_sql_metadata(sql_path)
         mock_cfg = meta.get("mock", {})
+        filters: dict[str, dict] = mock_cfg.get("filters", {})
+
+        # data_file: serve pre-loaded rows instead of generating random data
+        data_file = mock_cfg.get("data_file")
+        if data_file:
+            rows = self._load_data_file(sql_path, data_file)
+            rows = self._apply_filters(rows, filters, params)
+            return rows if limit is None else rows[:limit]
+
         dimensions: dict[str, list] = mock_cfg.get("dimensions", {})
         numerics: dict[str, dict] = mock_cfg.get("numerics", {})
-        filters: dict[str, dict] = mock_cfg.get("filters", {})
         derived: dict[str, dict] = mock_cfg.get("derived", {})
 
         if not dimensions:
@@ -138,15 +146,28 @@ class MockRunner(BaseRunner):
                     row[col_name] = d.replace(day=1).strftime(_FMT) if d else None
             rows.append(row)
 
+        rows = self._apply_filters(rows, filters, params)
+        return rows if limit is None else rows[:limit]
+
+    def _apply_filters(self, rows: list[dict], filters: dict, params: dict) -> list[dict]:
         for param_name, f_cfg in filters.items():
             param_val = params.get(param_name)
             if param_val is None:
                 continue
             col = f_cfg.get("column")
-            op = f_cfg.get("op", "=")
+            op  = f_cfg.get("op", "=")
             cmp = _OPS.get(op)
             if not col or not cmp:
                 continue
             rows = [r for r in rows if col in r and cmp(str(r[col]), str(param_val))]
+        return rows
 
-        return rows if limit is None else rows[:limit]
+    def _load_data_file(self, sql_path: Path, data_file: str) -> list[dict]:
+        import json
+        # Resolve relative to project root (parent of the reports directory)
+        candidate = Path(data_file)
+        if not candidate.is_absolute():
+            candidate = sql_path.parent.parent.parent.parent / data_file
+        if not candidate.exists():
+            return [{"message": f"data_file not found: {data_file} — run scripts/fetch_real_prices.py"}]
+        return json.loads(candidate.read_text(encoding="utf-8"))
