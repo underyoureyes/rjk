@@ -848,8 +848,11 @@
           <div class="form-text">Stored in the audit DB — used to retrieve this dataset later in the workflow.</div>
         </div>
         <div class="mb-3">
-          <label class="form-label fw-semibold">Persisted By <span class="text-danger">*</span></label>
-          <input type="text" class="form-control" id="persist-by-input" placeholder="Your name" />
+          <label class="form-label fw-semibold">Persisted By</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="persist-by-input" placeholder="Enter your name" />
+            <span class="input-group-text" id="persist-by-source" style="font-size:.75rem;color:var(--text-muted);"></span>
+          </div>
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold">Storage Format</label>
@@ -916,8 +919,11 @@
                  style="font-size:.8rem; color:var(--text-muted);" />
         </div>
         <div class="mb-3">
-          <label class="form-label fw-semibold">Signed Off By <span class="text-danger">*</span></label>
-          <input type="text" class="form-control" id="signoff-by-input" placeholder="Your name" />
+          <label class="form-label fw-semibold">Signed Off By</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="signoff-by-input" placeholder="Enter your name" />
+            <span class="input-group-text" id="signoff-by-source" style="font-size:.75rem;color:var(--text-muted);"></span>
+          </div>
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold">Notes</label>
@@ -2130,7 +2136,7 @@ function showSignoffModal() {
   document.getElementById('signoff-params-input').value = lastRunResult._params
     ? Object.entries(lastRunResult._params).map(([k, v]) => `${k}=${v}`).join('  |  ')
     : '—';
-  document.getElementById('signoff-by-input').value = _currentUser;
+  _applyUserFields();
   document.getElementById('signoff-notes-input').value = '';
   if (!_signoffModal) _signoffModal = new bootstrap.Modal(document.getElementById('signoffModal'));
   _signoffModal.show();
@@ -2147,7 +2153,7 @@ function showAggsSignoffModal() {
     `rows: ${lastAggsResult.row_count.toLocaleString()}`,
   ].join('  |  ');
   document.getElementById('signoff-params-input').value = aggSummary;
-  document.getElementById('signoff-by-input').value = _currentUser;
+  _applyUserFields();
   document.getElementById('signoff-notes-input').value = '';
   if (!_signoffModal) _signoffModal = new bootstrap.Modal(document.getElementById('signoffModal'));
   _signoffModal.show();
@@ -2307,7 +2313,7 @@ async function showRawPersistModal() {
     `type:     raw data (no aggregation)`,
   ].join('\n');
 
-  document.getElementById('persist-by-input').value = _currentUser;
+  _applyUserFields();
   _persistMode = 'raw';
   if (!_persistModal) _persistModal = new bootstrap.Modal(document.getElementById('persistModal'));
   _persistModal.show();
@@ -2390,7 +2396,7 @@ async function showPersistModal() {
     `source rows:   ${lastAggsResult.source_row_count.toLocaleString()}`,
   ].join('\n');
 
-  document.getElementById('persist-by-input').value = _currentUser;
+  _applyUserFields();
   _persistMode = 'agg';
   if (!_persistModal) _persistModal = new bootstrap.Modal(document.getElementById('persistModal'));
   _persistModal.show();
@@ -3153,18 +3159,35 @@ document.querySelectorAll('.theme-item').forEach(el => {
 // Init
 // ============================================================
 let _currentUser = '';
+let _currentUserSource = '';   // 'header' | 'os' | ''
 
 async function _loadCurrentUser() {
   try {
     const s = await fetch('/api/admin/status').then(r => r.json());
-    _currentUser = s.current_user || '';
-    if (_currentUser) {
-      // Pre-fill all "signed by" / "persisted by" fields
-      document.querySelectorAll('#signoff-by-input, #persist-by-input').forEach(el => {
-        if (!el.value) el.value = _currentUser;
-      });
-    }
-  } catch { /* non-fatal */ }
+    _currentUser       = s.current_user || '';
+    _currentUserSource = s.user_source  || '';
+  } catch { /* non-fatal — leave empty, user types manually */ }
+  _applyUserFields();
+}
+
+function _applyUserFields() {
+  const sourceLabel = _currentUserSource === 'header' ? 'SSO auto-detected'
+                    : _currentUserSource === 'os'     ? 'OS user auto-detected'
+                    : '';
+  const isAuto = !!_currentUser;
+
+  [
+    { input: 'signoff-by-input', badge: 'signoff-by-source' },
+    { input: 'persist-by-input', badge: 'persist-by-source' },
+  ].forEach(({ input, badge }) => {
+    const el  = document.getElementById(input);
+    const src = document.getElementById(badge);
+    if (!el) return;
+    el.value    = _currentUser;
+    el.readOnly = isAuto;
+    el.style.background = isAuto ? 'var(--bg-panel)' : '';
+    if (src) src.textContent = sourceLabel;
+  });
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -3172,9 +3195,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   log.info('RJK Reporting Framework started');
   initEmptyReportGrid();
   initEmptyAuditGrids();
-  _updateRawSignoffBar();   // show bar in idle state immediately
-  await loadReports();
-  _loadCurrentUser();
+  _updateRawSignoffBar();
+  await Promise.all([loadReports(), _loadCurrentUser()]);
 });
 
 function initEmptyReportGrid() {

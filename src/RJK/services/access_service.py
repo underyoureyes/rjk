@@ -130,15 +130,19 @@ class AccessService:
     # ------------------------------------------------------------------
 
     def get_current_user(self, headers: dict | None = None) -> str:
+        return self.get_current_user_with_source(headers)[0]
+
+    def get_current_user_with_source(self, headers: dict | None = None) -> tuple[str, str]:
+        """Return (username, source) where source is 'header' | 'os'."""
         if headers:
             for key in ("x-remote-user", "remote-user", "x-forwarded-user"):
                 v = headers.get(key) or headers.get(key.title())
                 if v:
-                    return v.strip().lower()
+                    return v.strip().lower(), "header"
         try:
-            return getpass.getuser().lower()
+            return getpass.getuser().lower(), "os"
         except Exception:
-            return "unknown"
+            return "unknown", "os"
 
     def get_unix_groups(self, username: str) -> list[str]:
         if not _UNIX:

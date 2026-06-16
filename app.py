@@ -574,7 +574,7 @@ async def signoff(request: Request):
 
 @app.get("/api/admin/status")
 async def admin_status(request: Request):
-    username = access_service.get_current_user(dict(request.headers))
+    username, user_source = access_service.get_current_user_with_source(dict(request.headers))
     user_groups = access_service.get_unix_groups(username)
     cfg = access_service.load_config()
     return {
@@ -582,6 +582,7 @@ async def admin_status(request: Request):
         "local_run": not access_service.auth_enabled,
         "unix_available": _UNIX_AVAILABLE,
         "current_user": username,
+        "user_source": user_source,
         "current_user_groups": user_groups,
         "is_admin": access_service.is_admin(username, user_groups=user_groups, cfg=cfg),
     }
