@@ -529,6 +529,14 @@
 
         <!-- Reporting tab -->
         <div id="tab-reporting" style="display:none;">
+
+          <!-- Quick-chart banner (shown when raw data loaded but no persisted dataset) -->
+          <div id="rpt-quickchart-banner" class="alert alert-info py-2 px-3 mb-2 small d-flex align-items-center gap-2" style="display:none !important;">
+            <i class="bi bi-lightning-fill"></i>
+            <span>Raw report data is loaded — you can chart it directly without persisting. Select
+            <strong>Raw data (current run)</strong> in the dataset list below.</span>
+          </div>
+
           <div class="d-flex gap-3" style="min-height:520px;">
 
             <!-- ── Controls panel ───────────────────────────────────── -->
@@ -536,7 +544,7 @@
 
               <div>
                 <div class="d-flex align-items-center mb-1">
-                  <label class="form-label fw-semibold small mb-0">Approved Dataset</label>
+                  <label class="form-label fw-semibold small mb-0">Dataset</label>
                   <button class="btn btn-sm btn-outline-secondary ms-auto py-0 px-1" onclick="loadRptDatasets()" title="Refresh"><i class="bi bi-arrow-clockwise"></i></button>
                 </div>
                 <input type="text" class="form-control form-control-sm mb-1" id="rpt-filter-user"
@@ -544,7 +552,7 @@
                 <input type="date" class="form-control form-control-sm mb-1" id="rpt-filter-date"
                        title="Show datasets created on or after this date" onchange="filterRptDatasets()">
                 <div id="rpt-dataset-list"
-                     style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;font-size:.78rem;"></div>
+                     style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;font-size:.78rem;"></div>
                 <div id="rpt-selected-label" class="font-monospace mt-1" style="font-size:.72rem;color:var(--text-muted);min-height:1rem;"></div>
               </div>
 
@@ -583,16 +591,42 @@
             </div>
 
             <!-- ── Chart output ─────────────────────────────────────── -->
-            <div id="rpt-chart-panel" style="flex:1;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;align-items:center;justify-content:center;min-height:520px;">
-              <div id="rpt-placeholder" class="text-center" style="color:var(--text-muted);">
-                <i class="bi bi-bar-chart-line" style="font-size:3rem;display:block;margin-bottom:.75rem;"></i>
-                Select a dataset and click <strong>Generate Chart</strong>
+            <div style="flex:1;display:flex;flex-direction:column;gap:.5rem;">
+              <!-- chart export toolbar — only shown after chart generated -->
+              <div id="rpt-export-toolbar" style="display:none;" class="d-flex gap-2 align-items-center">
+                <span class="small fw-semibold" style="color:var(--text-muted);">Export chart:</span>
+                <button class="btn btn-sm btn-danger" onclick="exportChartPdf()">
+                  <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+                </button>
+                <button class="btn btn-sm" style="background:#c05621;color:#fff;border:none;" onclick="exportChartPpt()">
+                  <i class="bi bi-file-earmark-slides me-1"></i>PPT
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="exportChartPng()">
+                  <i class="bi bi-file-image me-1"></i>PNG
+                </button>
               </div>
-              <div id="rpt-generating" class="text-center" style="display:none;color:var(--text-muted);">
-                <div class="spinner-border mb-3" style="width:3rem;height:3rem;color:var(--rjk-blue);" role="status"></div>
-                <div style="font-size:1.1rem;font-weight:600;letter-spacing:.04em;">Generating chart…</div>
+              <div id="rpt-chart-panel" style="flex:1;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;align-items:center;justify-content:center;min-height:500px;">
+                <div id="rpt-placeholder" class="text-center" style="color:var(--text-muted);max-width:420px;">
+                  <i class="bi bi-bar-chart-line" style="font-size:3rem;display:block;margin-bottom:.75rem;"></i>
+                  <p class="mb-2"><strong>No chart yet.</strong></p>
+                  <ol class="text-start small mb-0" style="line-height:2;">
+                    <li>Pick a <strong>dataset</strong> from the list on the left</li>
+                    <li>Choose a <strong>chart type</strong>, X-axis and Y-axis</li>
+                    <li>Click <strong>Generate Chart</strong></li>
+                  </ol>
+                  <hr class="my-3">
+                  <p class="small mb-0" style="color:var(--text-muted);">
+                    <i class="bi bi-info-circle me-1"></i>The dataset list shows <em>approved (persisted) aggregations</em>.
+                    To create one: run a raw report → Aggs tab → Preview → Sign Off → Persist.<br>
+                    Or select <strong>"Raw data (current run)"</strong> to chart without persisting.
+                  </p>
+                </div>
+                <div id="rpt-generating" class="text-center" style="display:none;color:var(--text-muted);">
+                  <div class="spinner-border mb-3" style="width:3rem;height:3rem;color:var(--rjk-blue);" role="status"></div>
+                  <div style="font-size:1.1rem;font-weight:600;letter-spacing:.04em;">Generating chart…</div>
+                </div>
+                <div id="rpt-chart" style="width:100%;height:480px;display:none;"></div>
               </div>
-              <div id="rpt-chart" style="width:100%;height:460px;display:none;"></div>
             </div>
 
           </div>
@@ -2316,6 +2350,8 @@ async function loadRptDatasets() {
   } catch (e) {
     log.error('Failed to load reporting datasets: ' + e.message);
   }
+  // Always show quick-chart option if raw data is available
+  _refreshQuickChartEntry();
 }
 
 function filterRptDatasets() {
@@ -2329,14 +2365,41 @@ function filterRptDatasets() {
   _renderRptDatasetList(filtered);
 }
 
+const _QUICK_NAME = '__raw_current__';
+
+function _refreshQuickChartEntry() {
+  // Re-render to add/remove the quick-chart entry depending on whether raw data is loaded
+  filterRptDatasets();
+}
+
 function _renderRptDatasetList(items) {
   // Dispose existing popovers
   _rptPopovers.forEach(p => p.dispose());
   _rptPopovers = [];
 
   const list = document.getElementById('rpt-dataset-list');
-  if (!items.length) {
-    list.innerHTML = '<div class="px-2 py-2 text-muted" style="font-size:.78rem;">No datasets found</div>';
+
+  // Build quick-chart entry (shown when a raw report has been run)
+  let quickHtml = '';
+  if (lastRunResult && lastRunResult.rows && lastRunResult.rows.length) {
+    const reportName = currentReport?.meta?.title || currentReport?.path || 'current report';
+    const active = _rptSelectedName === _QUICK_NAME ? 'background:var(--rjk-blue);color:#fff;' : 'background:rgba(0,48,135,.08);';
+    quickHtml = `<div class="rpt-ds-item px-2 py-1 d-flex align-items-center gap-1"
+      style="cursor:pointer;border-bottom:1px solid var(--border);${active}"
+      data-name="${_QUICK_NAME}"
+      onclick="selectRptDataset('${_QUICK_NAME}')">
+      <i class="bi bi-lightning-fill me-1" style="color:#c05621;font-size:.8rem;"></i>
+      <span class="text-truncate flex-grow-1" style="font-size:.78rem;">Raw data (current run)</span>
+      <span class="badge ms-1" style="font-size:.6rem;background:#c05621;">live</span>
+    </div>`;
+  }
+
+  if (!items.length && !quickHtml) {
+    list.innerHTML = `<div class="px-2 py-2 text-muted" style="font-size:.78rem;">
+      No approved datasets yet.<br>
+      <span style="font-size:.7rem;">Run a report → Aggs tab → Persist to create one,<br>
+      or run a report first to chart raw data directly.</span>
+    </div>`;
     return;
   }
 
@@ -2372,7 +2435,9 @@ function _renderRptDatasetList(items) {
             </div>`;
   }).join('');
 
-  // Init Bootstrap popovers on the new items
+  list.innerHTML = quickHtml + list.innerHTML;
+
+  // Init Bootstrap popovers on the persisted items
   list.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
     _rptPopovers.push(new bootstrap.Popover(el, { container: 'body', sanitize: false }));
   });
@@ -2387,35 +2452,55 @@ function _esc(s) {
 
 async function selectRptDataset(name) {
   _rptSelectedName = name;
-  // Re-render list to update highlight
   filterRptDatasets();
+
+  if (name === _QUICK_NAME) {
+    // Use live raw report columns
+    if (!lastRunResult?.rows?.length) { log.warn('No raw data loaded — run a report first'); return; }
+    const cols = infer_columns_js(lastRunResult.rows);
+    _fillRptSelectors(cols);
+    document.getElementById('rpt-selected-label').textContent =
+      (currentReport?.meta?.title || 'Raw data') + ' (current run)';
+    document.getElementById('rpt-title').value = currentReport?.meta?.title || '';
+    return;
+  }
+
   document.getElementById('rpt-selected-label').textContent = name;
   try {
     const { columns } = await fetch(`/api/aggs/persisted/${encodeURIComponent(name)}`).then(r => r.json());
-    const strCols = columns.filter(c => c.type === 'string');
-    const numCols = columns.filter(c => c.type === 'number');
-
-    const fill = (id, cols, withNone) => {
-      document.getElementById(id).innerHTML =
-        (withNone ? '<option value="">— none —</option>' : '') +
-        cols.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-    };
-    fill('rpt-x', columns, false);
-    fill('rpt-y', numCols.length ? numCols : columns, false);
-    fill('rpt-color', strCols, true);
-
-    if (strCols.length)   document.getElementById('rpt-x').value     = strCols[0].name;
-    if (numCols.length)   document.getElementById('rpt-y').value     = numCols[0].name;
-    if (strCols.length > 1) document.getElementById('rpt-color').value = strCols[1].name;
-
-    _syncLegendToColor();
-
+    _fillRptSelectors(columns);
     document.getElementById('rpt-title').value =
       name.replace(/_\d{8,}.*$/, '').replace(/_/g, ' ').trim();
   } catch (e) {
     log.error('Failed to load dataset columns: ' + e.message);
   }
 }
+
+function infer_columns_js(rows) {
+  if (!rows.length) return [];
+  return Object.entries(rows[0]).map(([name, val]) => ({
+    name, type: typeof val === 'number' ? 'number' : 'string'
+  }));
+}
+
+function _fillRptSelectors(columns) {
+  const strCols = columns.filter(c => c.type === 'string');
+  const numCols = columns.filter(c => c.type === 'number');
+  const fill = (id, cols, withNone) => {
+    document.getElementById(id).innerHTML =
+      (withNone ? '<option value="">— none —</option>' : '') +
+      cols.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+  };
+  fill('rpt-x', columns, false);
+  fill('rpt-y', numCols.length ? numCols : columns, false);
+  fill('rpt-color', strCols, true);
+  if (strCols.length)      document.getElementById('rpt-x').value     = strCols[0].name;
+  if (numCols.length)      document.getElementById('rpt-y').value     = numCols[0].name;
+  if (strCols.length > 1)  document.getElementById('rpt-color').value = strCols[1].name;
+  _syncLegendToColor();
+}
+
+let _lastChartFig = null;  // store for chart export
 
 async function generateChart() {
   const dataset = _rptSelectedName;
@@ -2433,17 +2518,32 @@ async function generateChart() {
   elPlaceholder.style.display = 'none';
   elChart.style.display       = 'none';
   elGenerating.style.display  = '';
+  document.getElementById('rpt-export-toolbar').style.display = 'none';
 
   log.info(`Generating ${_rptChartType} chart for "${dataset}"`);
   try {
     await _ensurePlotly();
-    const res = await fetch('/api/reporting/chart', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dataset, chart_type: _rptChartType, x, y, color, title, show_legend }),
-    });
-    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
-    const fig = await res.json();
+
+    let fig;
+    if (dataset === _QUICK_NAME) {
+      // Chart live raw data via aggregate endpoint (no persist needed)
+      const rows = lastRunResult.rows;
+      const res = await fetch('/api/reporting/chart-raw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows, chart_type: _rptChartType, x, y, color, title, show_legend }),
+      });
+      if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+      fig = await res.json();
+    } else {
+      const res = await fetch('/api/reporting/chart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataset, chart_type: _rptChartType, x, y, color, title, show_legend }),
+      });
+      if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+      fig = await res.json();
+    }
 
     // Adapt to current theme
     const isDark = ['darcula','dark','high-contrast'].includes(document.documentElement.dataset.theme);
@@ -2455,8 +2555,10 @@ async function generateChart() {
       fig.layout.font = { ...(fig.layout.font || {}), color: '#adbac7' };
     }
 
+    _lastChartFig = fig;
     elGenerating.style.display = 'none';
     elChart.style.display = '';
+    document.getElementById('rpt-export-toolbar').style.display = '';
     Plotly.react(elChart, fig.data, fig.layout, { responsive: true });
     log.success('Chart generated');
   } catch (e) {
@@ -2465,6 +2567,49 @@ async function generateChart() {
     log.error('Chart failed: ' + e.message);
     alert('Chart failed: ' + e.message);
   }
+}
+
+// Chart exports
+async function exportChartPng() {
+  if (!_lastChartFig) return;
+  await _ensurePlotly();
+  const el = document.getElementById('rpt-chart');
+  const name = (document.getElementById('rpt-title').value || 'chart').replace(/\s+/g,'_');
+  Plotly.downloadImage(el, { format: 'png', filename: name, width: 1400, height: 700 });
+}
+
+async function exportChartPdf() {
+  if (!_lastChartFig) return;
+  const title = document.getElementById('rpt-title').value || 'Chart';
+  const name  = title.replace(/\s+/g,'_');
+  log.info('Exporting chart PDF…');
+  try {
+    const res = await fetch('/api/reporting/chart-export/pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fig: _lastChartFig, title, filename: name }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    _triggerDownload(await res.blob(), name + '.pdf');
+    log.success('Chart PDF downloaded');
+  } catch (e) { log.error('Chart PDF failed: ' + e.message); alert(e.message); }
+}
+
+async function exportChartPpt() {
+  if (!_lastChartFig) return;
+  const title = document.getElementById('rpt-title').value || 'Chart';
+  const name  = title.replace(/\s+/g,'_');
+  log.info('Exporting chart PPT…');
+  try {
+    const res = await fetch('/api/reporting/chart-export/ppt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fig: _lastChartFig, title, filename: name }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    _triggerDownload(await res.blob(), name + '.pptx');
+    log.success('Chart PPT downloaded');
+  } catch (e) { log.error('Chart PPT failed: ' + e.message); alert(e.message); }
 }
 
 // Lazy-load Plotly.js only when the Reporting tab is first used
