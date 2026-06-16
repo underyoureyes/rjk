@@ -431,6 +431,21 @@
           <div class="grid-outer" style="border-radius:0 0 6px 6px;">
             <div id="report-grid" class="ag-theme-alpine grid-wrap"></div>
           </div>
+          <!-- Raw data sign-off / persist bar (≤ 2000 rows only) -->
+          <div id="raw-signoff-bar" class="mt-3 p-3 rounded d-flex align-items-center gap-2 flex-wrap" style="background:var(--bg-panel); border:1px solid var(--border); display:none !important;">
+            <i class="bi bi-check-circle-fill" style="color:#3fb950;"></i>
+            <span style="font-size:.83rem; color:var(--text-muted);">Raw data ready to sign off and persist</span>
+            <span id="raw-signoff-summary" class="font-monospace" style="font-size:.78rem; color:var(--text-muted);"></span>
+            <div class="ms-auto d-flex gap-2">
+              <button class="btn btn-sm btn-rjk" onclick="showRawSignoffModal()">
+                <i class="bi bi-pen me-1"></i>Sign Off Raw Data
+              </button>
+              <button id="raw-persist-btn" class="btn btn-sm" style="background:#2ea043;color:#fff;border:none;"
+                      onclick="showRawPersistModal()" disabled title="Sign off first to enable persist">
+                <i class="bi bi-database-fill-add me-1"></i>Persist Raw Data
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Aggs tab -->
@@ -1161,6 +1176,7 @@ async function selectReport(report) {
     document.getElementById('aggs-source-badge').style.display = 'none';
     document.getElementById('aggs-run-id-badge').style.display = 'none';
     document.getElementById('aggs-control-banner').style.display = 'none';
+    document.getElementById('raw-signoff-bar').style.display = 'none';
     if (reportGridApi) {
       reportGridApi.setGridOption('columnDefs', []);
       reportGridApi.setGridOption('rowData', []);
@@ -1283,6 +1299,7 @@ async function runReport(odbcOverrides) {
     _handleScanResult(lastRunResult);
 
     _setExportBtns(false);
+    _updateRawSignoffBar();
     loadAudit();
   } catch (e) {
     log.error('Run failed: ' + e.message);
@@ -2111,7 +2128,7 @@ function showSignoffModal() {
   document.getElementById('signoff-params-input').value = lastRunResult._params
     ? Object.entries(lastRunResult._params).map(([k, v]) => `${k}=${v}`).join('  |  ')
     : '—';
-  document.getElementById('signoff-by-input').value = '';
+  document.getElementById('signoff-by-input').value = _currentUser;
   document.getElementById('signoff-notes-input').value = '';
   if (!_signoffModal) _signoffModal = new bootstrap.Modal(document.getElementById('signoffModal'));
   _signoffModal.show();
@@ -2128,7 +2145,7 @@ function showAggsSignoffModal() {
     `rows: ${lastAggsResult.row_count.toLocaleString()}`,
   ].join('  |  ');
   document.getElementById('signoff-params-input').value = aggSummary;
-  document.getElementById('signoff-by-input').value = '';
+  document.getElementById('signoff-by-input').value = _currentUser;
   document.getElementById('signoff-notes-input').value = '';
   if (!_signoffModal) _signoffModal = new bootstrap.Modal(document.getElementById('signoffModal'));
   _signoffModal.show();
@@ -2165,6 +2182,11 @@ async function submitSignoff() {
       btn.disabled = false;
       btn.title = 'Persist aggregated data';
     }
+    // Enable raw-persist if this was a raw sign-off
+    if (!isAgg) {
+      const rb = document.getElementById('raw-persist-btn');
+      if (rb) { rb.disabled = false; rb.title = 'Persist raw data'; }
+    }
     loadAudit();
   } catch (e) {
     log.error('Sign-off failed: ' + e.message);
@@ -2173,11 +2195,101 @@ async function submitSignoff() {
 }
 
 // ============================================================
+// Raw data sign-off & persist (≤ 2000 rows)
+// ============================================================
+const RAW_PERSIST_ROW_LIMIT = 2000;
+
+function _updateRawSignoffBar() {
+  const bar = document.getElementById('raw-signoff-bar');
+  if (!lastRunResult || lastRunResult.row_count > RAW_PERSIST_ROW_LIMIT) {
+    bar.style.display = 'none';
+    return;
+  }
+  // Reset persist button state on each new run
+  const rb = document.getElementById('raw-persist-btn');
+  rb.disabled = true;
+  rb.title = 'Sign off first to enable persist';
+
+  document.getElementById('raw-signoff-summary').textContent =
+    `${lastRunResult.row_count.toLocaleString()} rows  ·  run #${lastRunResult.run_id}`;
+  bar.style.display = '';
+}
+
+function showRawSignoffModal() {
+  if (!lastRunResult) return;
+  document.getElementById('signoff-modal-title').innerHTML =
+    '<i class="bi bi-pen me-2"></i>Sign Off Raw Data';
+  document.getElementById('signoff-run-id-input').value  = lastRunResult.run_id;
+  document.getElementById('signoff-report-input').value  = currentReport.path;
+  document.getElementById('signoff-params-input').value  = lastRunResult._params
+    ? Object.entries(lastRunResult._params).map(([k, v]) => `${k}=${v}`).join('  |  ')
+    : '—';
+  document.getElementById('signoff-by-input').value    = '';
+  document.getElementById('signoff-notes-input').value = '';
+  if (!_signoffModal) _signoffModal = new bootstrap.Modal(document.getElementById('signoffModal'));
+  _signoffModal.show();
+}
+
+async function showRawPersistModal() {
+  if (!lastRunResult) return;
+  if (!_persistOptions) {
+    try { _persistOptions = await fetch('/api/config/persist-options').then(r => r.json()); }
+    catch { _persistOptions = { mysql_available: false }; }
+  }
+  const mysqlAvailable = _persistOptions.mysql_available;
+  document.getElementById('persist-fmt-mysql').disabled = !mysqlAvailable;
+  if (mysqlAvailable) {
+    document.getElementById('persist-mysql-label').querySelector('span').textContent = '— local work, up to ~500 MB';
+    document.getElementById('persist-mysql-label').classList.remove('text-muted');
+  }
+
+  _persistRows = _collectGridRows(reportGridApi);
+  const jsonStr   = JSON.stringify(_persistRows);
+  const sizeBytes = new TextEncoder().encode(jsonStr).length;
+  const sizeMB    = sizeBytes / 1048576;
+
+  let alertClass, recText, recClass;
+  if (sizeMB < 50) {
+    alertClass = 'alert-success'; recText = 'JSON recommended (under 50 MB)'; recClass = 'bg-success';
+    document.getElementById('persist-fmt-json').checked = true;
+  } else {
+    alertClass = 'alert-warning'; recText = mysqlAvailable ? 'MySQL recommended' : 'Consider MySQL';
+    recClass   = 'bg-warning text-dark';
+    const r = document.getElementById('persist-fmt-mysql');
+    if (r && !r.disabled) r.checked = true; else document.getElementById('persist-fmt-json').checked = true;
+  }
+  document.getElementById('persist-size-alert').className =
+    `alert d-flex align-items-center gap-2 mb-3 ${alertClass}`;
+  document.getElementById('persist-size-estimate').textContent =
+    `${_fmtBytes(sizeBytes)} (${_persistRows.length.toLocaleString()} rows)`;
+  const rec = document.getElementById('persist-recommendation');
+  rec.textContent = recText;
+  rec.className   = `ms-auto badge ${recClass}`;
+
+  const stem = currentReport.path.split('/').pop().replace('.sql', '');
+  const ts   = new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,15);
+  document.getElementById('persist-name-input').value = `${stem}_raw_${ts}`;
+
+  document.getElementById('persist-summary').textContent = [
+    `report:   ${currentReport.path}`,
+    `run_id:   ${lastRunResult.run_id}`,
+    `rows:     ${_persistRows.length.toLocaleString()}`,
+    `type:     raw data (no aggregation)`,
+  ].join('\n');
+
+  document.getElementById('persist-by-input').value = _currentUser;
+  _persistMode = 'raw';
+  if (!_persistModal) _persistModal = new bootstrap.Modal(document.getElementById('persistModal'));
+  _persistModal.show();
+}
+
+// ============================================================
 // Persist Aggregation
 // ============================================================
 let _persistModal = null;
 let _persistRows   = null;
 let _persistOptions = null;  // cached from /api/config/persist-options
+let _persistMode   = 'agg';  // 'agg' | 'raw'
 
 function _fmtBytes(b) {
   if (b < 1024)        return `${b} B`;
@@ -2248,7 +2360,8 @@ async function showPersistModal() {
     `source rows:   ${lastAggsResult.source_row_count.toLocaleString()}`,
   ].join('\n');
 
-  document.getElementById('persist-by-input').value = '';
+  document.getElementById('persist-by-input').value = _currentUser;
+  _persistMode = 'agg';
   if (!_persistModal) _persistModal = new bootstrap.Modal(document.getElementById('persistModal'));
   _persistModal.show();
 }
@@ -2260,19 +2373,20 @@ async function submitPersist() {
   if (!by) { alert('Please enter your name in "Persisted By"'); return; }
   const fmt = document.querySelector('input[name="persist-format"]:checked').value;
 
+  const isRaw = (_persistMode === 'raw');
   const payload = {
     name, format: fmt,
     persisted_by: by,
     rows: _persistRows,
     report_path: currentReport.path,
     run_id: lastRunResult.run_id,
-    group_by: lastAggsResult.group_by,
-    value_cols: lastAggsResult.value_cols,
+    group_by: isRaw ? [] : (lastAggsResult?.group_by || []),
+    value_cols: isRaw ? {} : (lastAggsResult?.value_cols || {}),
     row_count: _persistRows.length,
-    source_row_count: lastAggsResult.source_row_count,
+    source_row_count: isRaw ? _persistRows.length : (lastAggsResult?.source_row_count || _persistRows.length),
   };
 
-  log.info(`Persisting aggregation "${name}" as ${fmt}…`);
+  log.info(`Persisting ${isRaw ? 'raw data' : 'aggregation'} "${name}" as ${fmt}…`);
   try {
     const res = await fetch('/api/aggs/persist', {
       method: 'POST',
@@ -3008,12 +3122,28 @@ document.querySelectorAll('.theme-item').forEach(el => {
 // ============================================================
 // Init
 // ============================================================
+let _currentUser = '';
+
+async function _loadCurrentUser() {
+  try {
+    const s = await fetch('/api/admin/status').then(r => r.json());
+    _currentUser = s.current_user || '';
+    if (_currentUser) {
+      // Pre-fill all "signed by" / "persisted by" fields
+      document.querySelectorAll('#signoff-by-input, #persist-by-input').forEach(el => {
+        if (!el.value) el.value = _currentUser;
+      });
+    }
+  } catch { /* non-fatal */ }
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
   applyTheme(localStorage.getItem('rjk-theme') || 'light');
   log.info('RJK Reporting Framework started');
   initEmptyReportGrid();
   initEmptyAuditGrids();
   await loadReports();
+  _loadCurrentUser();
 });
 
 function initEmptyReportGrid() {
