@@ -1,6 +1,8 @@
 """Scan dataset columns for sensitive/restricted data patterns."""
+import json
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 # ---------------------------------------------------------------------------
@@ -109,3 +111,40 @@ class DataScanner:
 
 def get_scanner() -> DataScanner:
     return DataScanner()
+
+
+# ---------------------------------------------------------------------------
+# Persistent keyword config (stored in data/scanner_config.json)
+# ---------------------------------------------------------------------------
+
+def load_scanner_config(path: Path) -> dict:
+    """Load keyword lists from JSON, falling back to module defaults."""
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return {
+                "restricted_keywords": data.get("restricted_keywords", list(RESTRICTED_KEYWORDS)),
+                "pii_combination_keywords": data.get("pii_combination_keywords", list(PII_COMBINATION_KEYWORDS)),
+                "pii_combo_threshold": int(data.get("pii_combo_threshold", PII_COMBO_THRESHOLD)),
+            }
+        except Exception:
+            pass
+    return {
+        "restricted_keywords": list(RESTRICTED_KEYWORDS),
+        "pii_combination_keywords": list(PII_COMBINATION_KEYWORDS),
+        "pii_combo_threshold": PII_COMBO_THRESHOLD,
+    }
+
+
+def save_scanner_config(path: Path, cfg: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+
+
+def get_scanner_from_path(path: Path) -> DataScanner:
+    cfg = load_scanner_config(path)
+    return DataScanner(
+        restricted_keywords=cfg["restricted_keywords"],
+        pii_combination_keywords=cfg["pii_combination_keywords"],
+        pii_combo_threshold=cfg["pii_combo_threshold"],
+    )

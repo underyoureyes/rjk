@@ -137,7 +137,7 @@ class AccessService:
         if headers:
             for key in ("x-remote-user", "remote-user", "x-forwarded-user"):
                 v = headers.get(key) or headers.get(key.title())
-                if v:
+                if v and v.strip():
                     return v.strip().lower(), "header"
         try:
             return getpass.getuser().lower(), "os"

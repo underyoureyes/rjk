@@ -236,6 +236,13 @@
   .theme-item .bi-check2 { visibility: hidden; }
   .theme-item.active .bi-check2 { visibility: visible; }
 
+  /* Plotly modebar — larger, more visible icons */
+  .modebar-group { background: var(--bg-panel) !important; border-radius: 4px !important; }
+  .modebar-btn svg { width: 20px !important; height: 20px !important; }
+  .modebar-btn path { fill: var(--text-primary) !important; }
+  .modebar-btn:hover path { fill: var(--rjk-blue) !important; }
+  .modebar-btn.active path { fill: var(--rjk-blue) !important; }
+
   /* About modal markdown */
   #about-content { color: var(--text-primary); font-size: .88rem; line-height: 1.7; }
   #about-content h1 { font-size: 1.4rem; font-weight: 700; border-bottom: 2px solid var(--rjk-blue); padding-bottom: .3em; margin-bottom: .8em; color: var(--rjk-blue); }
@@ -432,21 +439,24 @@
             <div id="report-grid" class="ag-theme-alpine grid-wrap"></div>
           </div>
           <!-- Raw data sign-off / persist bar (≤ 2000 rows only) -->
-          <div id="raw-signoff-bar" class="mt-2 p-2 rounded d-flex align-items-center gap-2 flex-wrap"
+          <div id="raw-signoff-bar" class="mt-2 p-2 rounded"
                style="background:var(--bg-panel); border:1px solid var(--border);
                       position:sticky; bottom:0; z-index:10;">
-            <i id="raw-signoff-icon" class="bi bi-hourglass" style="color:var(--text-muted);"></i>
-            <span id="raw-signoff-label" style="font-size:.83rem; color:var(--text-muted);">Run a report to sign off and persist</span>
-            <span id="raw-signoff-summary" class="font-monospace" style="font-size:.78rem; color:var(--text-muted);"></span>
-            <div class="ms-auto d-flex gap-2">
-              <button id="raw-signoff-btn" class="btn btn-sm btn-rjk" onclick="showRawSignoffModal()" disabled>
-                <i class="bi bi-pen me-1"></i>Sign Off
-              </button>
-              <button id="raw-persist-btn" class="btn btn-sm" style="background:#2ea043;color:#fff;border:none;"
-                      onclick="showRawPersistModal()" disabled title="Sign off first to enable persist">
-                <i class="bi bi-database-fill-add me-1"></i>Persist Raw Data
-              </button>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <i id="raw-signoff-icon" class="bi bi-hourglass" style="color:var(--text-muted);"></i>
+              <span id="raw-signoff-label" style="font-size:.83rem; color:var(--text-muted);">Run a report to sign off and persist</span>
+              <span id="raw-signoff-summary" class="font-monospace" style="font-size:.78rem; color:var(--text-muted);"></span>
+              <div class="ms-auto d-flex gap-2">
+                <button id="raw-signoff-btn" class="btn btn-sm btn-rjk" onclick="showRawSignoffModal()" disabled>
+                  <i class="bi bi-pen me-1"></i>Sign Off
+                </button>
+                <button id="raw-persist-btn" class="btn btn-sm" style="background:#2ea043;color:#fff;border:none;"
+                        onclick="showRawPersistModal()" disabled title="Sign off first to enable persist">
+                  <i class="bi bi-database-fill-add me-1"></i>Persist Raw Data
+                </button>
+              </div>
             </div>
+            <div id="raw-row-notice" style="display:none; font-size:.78rem; margin-top:.35rem; padding:.3rem .5rem; border-radius:.3rem;"></div>
           </div>
         </div>
 
@@ -622,7 +632,7 @@
                   <i class="bi bi-file-image me-1"></i>PNG
                 </button>
               </div>
-              <div id="rpt-chart-panel" style="flex:1;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;align-items:center;justify-content:center;min-height:500px;">
+              <div id="rpt-chart-panel" style="flex:1;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;align-items:center;justify-content:center;min-height:600px;">
                 <div id="rpt-placeholder" class="text-center" style="color:var(--text-muted);max-width:420px;">
                   <i class="bi bi-bar-chart-line" style="font-size:3rem;display:block;margin-bottom:.75rem;"></i>
                   <p class="mb-2"><strong>No chart yet.</strong></p>
@@ -642,7 +652,7 @@
                   <div class="spinner-border mb-3" style="width:3rem;height:3rem;color:var(--rjk-blue);" role="status"></div>
                   <div style="font-size:1.1rem;font-weight:600;letter-spacing:.04em;">Generating chart…</div>
                 </div>
-                <div id="rpt-chart" style="width:100%;height:480px;display:none;"></div>
+                <div id="rpt-chart" style="width:100%;height:560px;display:none;"></div>
               </div>
             </div>
 
@@ -799,6 +809,68 @@
         </div>
         <div id="admin-unix-groups-body" class="small" style="color:var(--text-muted);">
           Click Refresh to load.
+        </div>
+      </div>
+
+      <!-- Data Scanner Keywords -->
+      <div class="mb-3 p-3 rounded" style="background:var(--bg-panel); border:1px solid var(--border);">
+        <div class="d-flex align-items-center mb-1">
+          <span class="section-title mb-0"><i class="bi bi-shield-exclamation me-1"></i>Data Scanner Keywords</span>
+          <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="adminSaveScannerConfig()">
+            <i class="bi bi-floppy me-1"></i>Save Keywords
+          </button>
+        </div>
+        <p class="small mb-3" style="color:var(--text-muted);">
+          Keywords are matched against column names (case-insensitive substring match).
+          <strong>Restricted</strong> columns are blocked from export.
+          <strong>PII combination</strong> columns trigger a warning when
+          <span id="pii-threshold-inline">3</span> or more are present together.
+        </p>
+
+        <div class="row g-3">
+          <!-- Restricted keywords -->
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-danger">
+              <i class="bi bi-x-octagon-fill me-1"></i>Restricted (blocked)
+            </label>
+            <div id="scanner-restricted-tags" class="d-flex flex-wrap gap-1 mb-2 p-2 rounded"
+                 style="min-height:2.5rem; background:var(--bg-input); border:1px solid var(--input-border);"></div>
+            <div class="input-group input-group-sm">
+              <input type="text" id="scanner-restricted-input" class="form-control"
+                     placeholder="add keyword…"
+                     style="background:var(--bg-input); color:var(--text-primary); border-color:var(--input-border);"
+                     onkeydown="if(event.key==='Enter'){adminAddKeyword('restricted');event.preventDefault();}">
+              <button class="btn btn-outline-danger btn-sm" onclick="adminAddKeyword('restricted')">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- PII combination keywords -->
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-warning">
+              <i class="bi bi-exclamation-triangle-fill me-1"></i>PII Combination (warning)
+            </label>
+            <div id="scanner-pii-tags" class="d-flex flex-wrap gap-1 mb-2 p-2 rounded"
+                 style="min-height:2.5rem; background:var(--bg-input); border:1px solid var(--input-border);"></div>
+            <div class="input-group input-group-sm">
+              <input type="text" id="scanner-pii-input" class="form-control"
+                     placeholder="add keyword…"
+                     style="background:var(--bg-input); color:var(--text-primary); border-color:var(--input-border);"
+                     onkeydown="if(event.key==='Enter'){adminAddKeyword('pii');event.preventDefault();}">
+              <button class="btn btn-outline-warning btn-sm" onclick="adminAddKeyword('pii')">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PII threshold -->
+        <div class="mt-3 d-flex align-items-center gap-2">
+          <label class="form-label small fw-semibold mb-0">PII combination threshold:</label>
+          <input type="number" id="scanner-threshold-input" class="form-control form-control-sm"
+                 min="2" max="20" value="3" style="width:4.5rem; background:var(--bg-input); color:var(--text-primary); border-color:var(--input-border);">
+          <span class="small" style="color:var(--text-muted);">or more PII columns triggers a warning</span>
         </div>
       </div>
 
@@ -964,6 +1036,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script>
 // ============================================================
 // State
@@ -971,6 +1044,7 @@
 let currentReport   = null;   // { path, title, description, ... }
 let currentMeta     = null;   // full metadata from /api/reports/meta
 let lastRunResult   = null;   // { run_id, rows, row_count }
+let _lastMaxRows    = null;   // null = no limit applied; number = limit that was used
 function _setExportBtns(disabled) {
   ['btn-export-csv','btn-export-xlsx','btn-export-pdf','btn-export-ppt']
     .forEach(id => { const el = document.getElementById(id); if (el) el.disabled = disabled; });
@@ -1014,6 +1088,22 @@ async function showAbout() {
     const res = await fetch('/api/about');
     const data = await res.json();
     content.innerHTML = marked.parse(data.content);
+
+    // Render any ```mermaid code blocks as SVG diagrams
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+                || document.documentElement.getAttribute('data-theme') === 'darcula';
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'neutral', securityLevel: 'loose' });
+    const mermaidBlocks = content.querySelectorAll('code.language-mermaid');
+    for (const el of mermaidBlocks) {
+      try {
+        const id = 'mermaid-' + Math.random().toString(36).slice(2);
+        const { svg } = await mermaid.render(id, el.textContent.trim());
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'overflow-x:auto; margin:.8em 0;';
+        wrapper.innerHTML = svg;
+        el.closest('pre').replaceWith(wrapper);
+      } catch { /* leave as code block if diagram fails */ }
+    }
   } catch (e) {
     content.innerHTML = '<div class="alert alert-danger">Failed to load content.</div>';
     log.error('About: ' + e.message);
@@ -1179,6 +1269,7 @@ async function selectReport(report) {
     _setExportBtns(false);
   } else {
     lastRunResult = null;
+    _lastMaxRows  = null;
     lastAggsResult = null;
     document.getElementById('aggs-signoff-bar').style.display = 'none';
     document.getElementById('aggs-source-badge').style.display = 'none';
@@ -1287,6 +1378,7 @@ async function runReport(odbcOverrides) {
   const runBtn = document.querySelector('#param-toolbar button.btn-rjk');
   if (runBtn) { runBtn.disabled = true; runBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Running…'; }
 
+  _lastMaxRows = maxRows;
   try {
     const res = await fetch('/api/reports/run', {
       method: 'POST',
@@ -1651,7 +1743,7 @@ let _adminInitDone = false;
 async function adminInit() {
   if (_adminInitDone) return;
   _adminInitDone = true;
-  await Promise.all([adminLoadStatus(), adminLoadConfig()]);
+  await Promise.all([adminLoadStatus(), adminLoadConfig(), adminLoadScannerConfig()]);
 }
 
 async function adminLoadStatus() {
@@ -1925,18 +2017,94 @@ async function adminSaveConfig() {
   const adminGroupsRaw = document.getElementById('admin-groups-input').value;
   _adminCfg.admin_groups = adminGroupsRaw.split(',').map(s => s.trim()).filter(Boolean);
   try {
-    const res = await fetch('/api/admin/config', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(_adminCfg),
-    });
+    // Save both ACL config and scanner keywords in parallel so the reload below
+    // reads the updated versions of both.
+    const [res] = await Promise.all([
+      fetch('/api/admin/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(_adminCfg),
+      }),
+      _flushScannerConfig(),
+    ]);
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
     const data = await res.json();
-    log.success(`Admin config saved — ${data.rules_saved} rule(s)`);
+    log.success(`Admin config saved — ${data.rules_saved} rule(s), scanner keywords included`);
     _adminInitDone = false;   // force re-fetch next time
     adminInit();
   } catch (e) {
     log.error('Admin save failed: ' + e.message);
+    alert('Save failed: ' + e.message);
+  }
+}
+
+// ============================================================
+// Admin — data scanner keyword editor
+// ============================================================
+let _scannerKw = { restricted_keywords: [], pii_combination_keywords: [], pii_combo_threshold: 3 };
+
+async function adminLoadScannerConfig() {
+  try {
+    _scannerKw = await fetch('/api/admin/scanner-config').then(r => r.json());
+    _renderScannerTags('restricted', _scannerKw.restricted_keywords || []);
+    _renderScannerTags('pii', _scannerKw.pii_combination_keywords || []);
+    const thresh = _scannerKw.pii_combo_threshold ?? 3;
+    document.getElementById('scanner-threshold-input').value = thresh;
+    document.getElementById('pii-threshold-inline').textContent = thresh;
+  } catch (e) { log.error('Scanner config load: ' + e.message); }
+}
+
+function _renderScannerTags(type, keywords) {
+  const el = document.getElementById(`scanner-${type === 'restricted' ? 'restricted' : 'pii'}-tags`);
+  const cls = type === 'restricted' ? 'bg-danger' : 'bg-warning text-dark';
+  el.innerHTML = keywords.map((kw, i) =>
+    `<span class="badge ${cls} d-inline-flex align-items-center gap-1">
+      ${kw}
+      <i class="bi bi-x" style="cursor:pointer;font-size:.8rem;"
+         onclick="adminRemoveKeyword('${type}',${i})"></i>
+    </span>`
+  ).join('');
+}
+
+function adminAddKeyword(type) {
+  const inputId = type === 'restricted' ? 'scanner-restricted-input' : 'scanner-pii-input';
+  const el = document.getElementById(inputId);
+  const kw = el.value.trim().toLowerCase();
+  if (!kw) return;
+  const list = type === 'restricted' ? _scannerKw.restricted_keywords : _scannerKw.pii_combination_keywords;
+  if (!list.includes(kw)) {
+    list.push(kw);
+    _renderScannerTags(type, list);
+  }
+  el.value = '';
+  el.focus();
+}
+
+function adminRemoveKeyword(type, i) {
+  const list = type === 'restricted' ? _scannerKw.restricted_keywords : _scannerKw.pii_combination_keywords;
+  list.splice(i, 1);
+  _renderScannerTags(type, list);
+}
+
+async function _flushScannerConfig() {
+  // Persist current in-memory keywords to the server without UI side-effects.
+  // Call this before any operation that reloads the admin config.
+  _scannerKw.pii_combo_threshold = parseInt(document.getElementById('scanner-threshold-input')?.value, 10) || 3;
+  const res = await fetch('/api/admin/scanner-config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(_scannerKw),
+  });
+  if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+}
+
+async function adminSaveScannerConfig() {
+  try {
+    await _flushScannerConfig();
+    document.getElementById('pii-threshold-inline').textContent = _scannerKw.pii_combo_threshold;
+    log.success(`Scanner keywords saved — ${_scannerKw.restricted_keywords.length} restricted, ${_scannerKw.pii_combination_keywords.length} PII`);
+  } catch (e) {
+    log.error('Scanner save failed: ' + e.message);
     alert('Save failed: ' + e.message);
   }
 }
@@ -2086,18 +2254,31 @@ async function exportPdf() {
   const params   = lastRunResult._params
     ? Object.entries(lastRunResult._params).map(([k, v]) => `${k}=${v}`).join('  |  ')
     : '';
-  log.info(`Exporting PDF (${rows.length.toLocaleString()} rows)…`);
+  const btn = document.getElementById('btn-export-pdf');
+  const origHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating…';
+  log.info(`Generating PDF (${rows.length.toLocaleString()} rows)…`);
   try {
     const res = await fetch('/api/reports/export/pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rows, title, params, filename }),
     });
-    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    if (!res.ok) {
+      const detail = (await res.json()).detail || res.statusText;
+      throw new Error(detail);
+    }
     const blob = await res.blob();
     _triggerDownload(blob, filename + '.pdf');
     log.success(`PDF downloaded (${rows.length.toLocaleString()} rows)`);
-  } catch (e) { log.error('PDF export failed: ' + e.message); }
+  } catch (e) {
+    log.error('PDF export failed: ' + e.message);
+    alert('PDF export failed: ' + e.message);
+  } finally {
+    btn.innerHTML = origHtml;
+    btn.disabled = false;
+  }
 }
 
 async function exportPpt() {
@@ -2109,18 +2290,31 @@ async function exportPpt() {
   const params   = lastRunResult._params
     ? Object.entries(lastRunResult._params).map(([k, v]) => `${k}=${v}`).join('  |  ')
     : '';
-  log.info(`Exporting PPT (${rows.length.toLocaleString()} rows)…`);
+  const btn = document.getElementById('btn-export-ppt');
+  const origHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating…';
+  log.info(`Generating PPT (${rows.length.toLocaleString()} rows)…`);
   try {
     const res = await fetch('/api/reports/export/ppt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rows, title, params, filename }),
     });
-    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    if (!res.ok) {
+      const detail = (await res.json()).detail || res.statusText;
+      throw new Error(detail);
+    }
     const blob = await res.blob();
     _triggerDownload(blob, filename + '.pptx');
     log.success(`PPT downloaded (${rows.length.toLocaleString()} rows)`);
-  } catch (e) { log.error('PPT export failed: ' + e.message); }
+  } catch (e) {
+    log.error('PPT export failed: ' + e.message);
+    alert('PPT export failed: ' + e.message);
+  } finally {
+    btn.innerHTML = origHtml;
+    btn.disabled = false;
+  }
 }
 
 // ============================================================
@@ -2211,43 +2405,78 @@ function _updateRawSignoffBar() {
   const icon    = document.getElementById('raw-signoff-icon');
   const label   = document.getElementById('raw-signoff-label');
   const summary = document.getElementById('raw-signoff-summary');
+  const notice  = document.getElementById('raw-row-notice');
   const soBtn   = document.getElementById('raw-signoff-btn');
   const perBtn  = document.getElementById('raw-persist-btn');
 
   if (!lastRunResult) {
-    // No run yet — idle state
-    icon.className  = 'bi bi-hourglass';
+    icon.className   = 'bi bi-hourglass';
     icon.style.color = 'var(--text-muted)';
     label.textContent = 'Run a report to sign off and persist';
     label.style.color = 'var(--text-muted)';
     summary.textContent = '';
+    notice.style.display = 'none';
     soBtn.disabled  = true;
     perBtn.disabled = true;
     perBtn.title    = 'Run a report first';
     return;
   }
 
-  const overLimit = lastRunResult.row_count > RAW_PERSIST_ROW_LIMIT;
-  const rows = lastRunResult.row_count.toLocaleString();
+  const count     = lastRunResult.row_count;
+  const rows      = count.toLocaleString();
+  const overLimit = count > RAW_PERSIST_ROW_LIMIT;
+  const noLimit   = (_lastMaxRows === null);
+
+  summary.textContent = `${rows} row${count === 1 ? '' : 's'}  ·  run #${lastRunResult.run_id}`;
 
   if (overLimit) {
     icon.className   = 'bi bi-exclamation-triangle-fill';
     icon.style.color = '#e3a008';
-    label.textContent = 'Sign-off available — persist limited to 2,000 rows';
+    label.textContent = 'Too many rows to sign off or persist raw data';
     label.style.color = 'var(--text-muted)';
-    summary.textContent = `${rows} rows  ·  run #${lastRunResult.run_id}`;
-    soBtn.disabled  = false;
+    soBtn.disabled  = true;
     perBtn.disabled = true;
-    perBtn.title    = `Dataset has ${rows} rows — exceeds 2,000 row limit for raw persist. Aggregate first.`;
+
+    if (noLimit) {
+      notice.style.display = '';
+      notice.style.background = 'rgba(227,160,8,.12)';
+      notice.style.color = '#e3a008';
+      notice.innerHTML =
+        `<i class="bi bi-info-circle me-1"></i>` +
+        `<strong>${rows} rows</strong> returned with <strong>no row limit applied</strong>. ` +
+        `Set a row limit of ≤&nbsp;${RAW_PERSIST_ROW_LIMIT.toLocaleString()} in the toolbar and re-run, ` +
+        `or use the Aggregation tab to summarise the data before signing off.`;
+    } else {
+      notice.style.display = '';
+      notice.style.background = 'rgba(227,160,8,.12)';
+      notice.style.color = '#e3a008';
+      notice.innerHTML =
+        `<i class="bi bi-exclamation-triangle me-1"></i>` +
+        `<strong>${rows} rows</strong> exceeds the ${RAW_PERSIST_ROW_LIMIT.toLocaleString()}-row sign-off limit. ` +
+        `Reduce the row limit and re-run, or use the Aggregation tab.`;
+    }
+    soBtn.title  = `${rows} rows — reduce to ≤${RAW_PERSIST_ROW_LIMIT.toLocaleString()} to sign off`;
+    perBtn.title = soBtn.title;
   } else {
     icon.className   = 'bi bi-check-circle-fill';
     icon.style.color = '#3fb950';
     label.textContent = 'Raw data ready to sign off and persist';
     label.style.color = 'var(--text-muted)';
-    summary.textContent = `${rows} rows  ·  run #${lastRunResult.run_id}`;
     soBtn.disabled  = false;
-    perBtn.disabled = true;          // re-locked until signed off
+    perBtn.disabled = true;
     perBtn.title    = 'Sign off first to enable persist';
+
+    if (noLimit) {
+      notice.style.display = '';
+      notice.style.background = 'rgba(63,185,80,.1)';
+      notice.style.color = '#3fb950';
+      notice.innerHTML =
+        `<i class="bi bi-info-circle me-1"></i>` +
+        `<strong>${rows} rows</strong> returned — no row limit was applied. ` +
+        `All rows will be included in sign-off and persist.`;
+    } else {
+      notice.style.display = 'none';
+    }
   }
 }
 
@@ -2260,8 +2489,11 @@ function showRawSignoffModal() {
   document.getElementById('signoff-params-input').value  = lastRunResult._params
     ? Object.entries(lastRunResult._params).map(([k, v]) => `${k}=${v}`).join('  |  ')
     : '—';
-  document.getElementById('signoff-by-input').value    = '';
-  document.getElementById('signoff-notes-input').value = '';
+  _applyUserFields();
+  const limitNote = (_lastMaxRows !== null)
+    ? `Row limit applied: ${_lastMaxRows.toLocaleString()} of ${lastRunResult.row_count.toLocaleString()} rows signed off.`
+    : '';
+  document.getElementById('signoff-notes-input').value = limitNote;
   if (!_signoffModal) _signoffModal = new bootstrap.Modal(document.getElementById('signoffModal'));
   _signoffModal.show();
 }
@@ -2709,7 +2941,17 @@ async function generateChart() {
     elGenerating.style.display = 'none';
     elChart.style.display = '';
     document.getElementById('rpt-export-toolbar').style.display = '';
-    Plotly.react(elChart, fig.data, fig.layout, { responsive: true });
+    fig.layout = fig.layout || {};
+    fig.layout.height = 540;
+    fig.layout.margin = { ...(fig.layout.margin || {}), t: 50, r: 30, b: 60, l: 60 };
+    Plotly.react(elChart, fig.data, fig.layout, {
+      responsive: true,
+      scrollZoom: true,
+      displayModeBar: true,
+      modeBarButtonsToRemove: ['sendDataToCloud', 'lasso2d'],
+      displaylogo: false,
+      toImageButtonOptions: { width: 1600, height: 800 },
+    });
     log.success('Chart generated');
   } catch (e) {
     elGenerating.style.display = 'none';
@@ -3171,10 +3413,9 @@ async function _loadCurrentUser() {
 }
 
 function _applyUserFields() {
-  const sourceLabel = _currentUserSource === 'header' ? 'SSO auto-detected'
-                    : _currentUserSource === 'os'     ? 'OS user auto-detected'
+  const sourceLabel = _currentUserSource === 'header' ? 'SSO'
+                    : _currentUserSource === 'os'     ? 'OS user'
                     : '';
-  const isAuto = !!_currentUser;
 
   [
     { input: 'signoff-by-input', badge: 'signoff-by-source' },
@@ -3183,9 +3424,10 @@ function _applyUserFields() {
     const el  = document.getElementById(input);
     const src = document.getElementById(badge);
     if (!el) return;
-    el.value    = _currentUser;
-    el.readOnly = isAuto;
-    el.style.background = isAuto ? 'var(--bg-panel)' : '';
+    // Always pre-fill with detected user but never lock — user can always override
+    if (_currentUser && !el.value) el.value = _currentUser;
+    el.readOnly = false;
+    el.style.background = '';
     if (src) src.textContent = sourceLabel;
   });
 }

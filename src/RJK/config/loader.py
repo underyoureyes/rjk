@@ -20,6 +20,10 @@ class Config:
     def acl_path(self) -> Path:
         return Path(self.audit_db_path).parent / "acl.json"
 
+    @property
+    def scanner_config_path(self) -> Path:
+        return Path(self.audit_db_path).parent / "scanner_config.json"
+
     def validate(self) -> list[str]:
         warnings = []
         if not self.mock_mode and not self.db_conn_string:

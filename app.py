@@ -20,7 +20,12 @@ from RJK.parser.sql_metadata_parser import parse_sql_metadata
 from RJK.services.access_service import AccessService, AclConfig, FolderRule, TempUser
 from RJK.services.aggregation_service import AggregationService
 from RJK.services.chart_service import ChartService, infer_columns
-from RJK.services.data_scanner import get_scanner
+from RJK.services.data_scanner import (
+    get_scanner,
+    get_scanner_from_path,
+    load_scanner_config,
+    save_scanner_config,
+)
 from RJK.services.export_service import ExportService
 from RJK.services.report_service import ReportService
 from RJK.ui.layout import get_index_html
@@ -85,7 +90,7 @@ async def run_report(request: Request):
         )
         # Scan columns for sensitive data and attach result
         if result["rows"]:
-            scan = get_scanner().scan_columns(list(result["rows"][0].keys()))
+            scan = get_scanner_from_path(config.scanner_config_path).scan_columns(list(result["rows"][0].keys()))
             result["scan"] = {
                 "clean": scan.clean,
                 "flags": [{"column": f.column, "reason": f.reason, "severity": f.severity} for f in scan.flags],
@@ -201,12 +206,24 @@ async def export_ppt(request: Request):
 
 @app.get("/api/reports/scan-config")
 def scan_config():
-    from RJK.services.data_scanner import RESTRICTED_KEYWORDS, PII_COMBINATION_KEYWORDS, PII_COMBO_THRESHOLD
-    return {
-        "restricted_keywords": RESTRICTED_KEYWORDS,
-        "pii_combination_keywords": PII_COMBINATION_KEYWORDS,
-        "pii_combo_threshold": PII_COMBO_THRESHOLD,
+    return load_scanner_config(config.scanner_config_path)
+
+
+@app.get("/api/admin/scanner-config")
+def admin_get_scanner_config():
+    return load_scanner_config(config.scanner_config_path)
+
+
+@app.put("/api/admin/scanner-config")
+async def admin_put_scanner_config(request: Request):
+    body = await request.json()
+    cfg = {
+        "restricted_keywords": [str(k).lower().strip() for k in body.get("restricted_keywords", []) if k],
+        "pii_combination_keywords": [str(k).lower().strip() for k in body.get("pii_combination_keywords", []) if k],
+        "pii_combo_threshold": max(1, int(body.get("pii_combo_threshold", 3))),
     }
+    save_scanner_config(config.scanner_config_path, cfg)
+    return {"ok": True, "saved": cfg}
 
 
 @app.post("/api/reports/create")
@@ -540,9 +557,9 @@ async def chart_export_ppt(request: Request):
 
 @app.get("/api/about")
 def get_about():
-    md_path = Path(__file__).parent / "CLAUDE.md"
+    md_path = Path(__file__).parent / "ABOUT.md"
     if not md_path.exists():
-        raise HTTPException(status_code=404, detail="CLAUDE.md not found")
+        raise HTTPException(status_code=404, detail="ABOUT.md not found")
     return {"content": md_path.read_text(encoding="utf-8")}
 
 
