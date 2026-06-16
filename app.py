@@ -438,6 +438,106 @@ async def generate_chart(request: Request):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.post("/api/reporting/chart-raw")
+async def chart_raw(request: Request):
+    """Generate a chart directly from posted rows — no persisted dataset required."""
+    body        = await request.json()
+    rows        = body.get("rows", [])
+    chart_type  = body.get("chart_type", "bar")
+    x           = body.get("x", "")
+    y           = body.get("y", "")
+    color       = body.get("color") or None
+    title       = body.get("title", "")
+    show_legend = bool(body.get("show_legend", False))
+    if not rows or not x or not y:
+        raise HTTPException(status_code=400, detail="rows, x, and y are required")
+    try:
+        fig = chart_service.build(rows, chart_type, x, y, color, title, show_legend=show_legend)
+        return fig
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Chart generation failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+def _chart_to_png_bytes(fig_dict: dict) -> bytes:
+    """Render a Plotly figure dict to PNG bytes via kaleido."""
+    import plotly.graph_objects as go
+    fig = go.Figure(data=fig_dict.get("data", []), layout=fig_dict.get("layout", {}))
+    return fig.to_image(format="png", width=1400, height=700, scale=2)
+
+
+@app.post("/api/reporting/chart-export/pdf")
+async def chart_export_pdf(request: Request):
+    body     = await request.json()
+    fig_dict = body.get("fig", {})
+    title    = body.get("title", "Chart")
+    filename = (body.get("filename") or "chart") + ".pdf"
+    try:
+        png_bytes = _chart_to_png_bytes(fig_dict)
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.platypus import SimpleDocTemplate, Image as RLImage, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.units import cm
+        import io as _io
+        buf = _io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=1.5*cm,
+                                rightMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+        styles = getSampleStyleSheet()
+        img_buf = _io.BytesIO(png_bytes)
+        pw = landscape(A4)[0] - 3*cm
+        img = RLImage(img_buf, width=pw, height=pw*0.5)
+        story = [Paragraph(title, styles["Title"]), Spacer(1, 0.3*cm), img]
+        doc.build(story)
+        buf.seek(0)
+        return StreamingResponse(buf, media_type="application/pdf",
+                                 headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+    except Exception as exc:
+        logger.exception("Chart PDF export failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/reporting/chart-export/ppt")
+async def chart_export_ppt(request: Request):
+    body     = await request.json()
+    fig_dict = body.get("fig", {})
+    title    = body.get("title", "Chart")
+    filename = (body.get("filename") or "chart") + ".pptx"
+    try:
+        png_bytes = _chart_to_png_bytes(fig_dict)
+        from pptx import Presentation
+        from pptx.util import Inches, Pt
+        from pptx.dml.color import RGBColor
+        import io as _io
+        prs = Presentation()
+        prs.slide_width  = Inches(13.33)
+        prs.slide_height = Inches(7.5)
+        layout = prs.slide_layouts[5]   # blank
+        slide = prs.slides.add_slide(layout)
+        # Title text box
+        txb = slide.shapes.add_textbox(Inches(0.4), Inches(0.15), Inches(12.5), Inches(0.6))
+        tf  = txb.text_frame
+        tf.text = title
+        tf.paragraphs[0].runs[0].font.size  = Pt(24)
+        tf.paragraphs[0].runs[0].font.bold  = True
+        tf.paragraphs[0].runs[0].font.color.rgb = RGBColor(0x00, 0x30, 0x87)
+        # Chart image
+        img_buf = _io.BytesIO(png_bytes)
+        slide.shapes.add_picture(img_buf, Inches(0.2), Inches(0.85), Inches(12.9), Inches(6.4))
+        out = _io.BytesIO()
+        prs.save(out)
+        out.seek(0)
+        return StreamingResponse(
+            out,
+            media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception as exc:
+        logger.exception("Chart PPT export failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/api/about")
 def get_about():
     md_path = Path(__file__).parent / "CLAUDE.md"
