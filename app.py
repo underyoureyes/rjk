@@ -606,12 +606,14 @@ async def chart_export_pdf(request: Request):
         img = RLImage(img_buf, width=pw, height=img_h)
         story = [Paragraph(title, styles["Title"]), Spacer(1, 0.3*cm), img]
         if notes_text:
+            import html as _html
             notes_style = ParagraphStyle(
                 "Notes", parent=styles["Normal"],
-                fontSize=10, leading=14, spaceAfter=0,
+                fontSize=10, leading=14,
                 textColor=HexColor("#333333"),
             )
-            story += [Spacer(1, 0.4*cm), Paragraph(notes_text, notes_style)]
+            # Paragraph parses as XML — escape special chars so & < > don't crash it
+            story += [Spacer(1, 0.4*cm), Paragraph(_html.escape(notes_text), notes_style)]
         doc.build(story)
         buf.seek(0)
         return StreamingResponse(buf, media_type="application/pdf",

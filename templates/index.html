@@ -3555,11 +3555,12 @@ function notesCmd(cmd, val) {
 
 function _notesPayload() {
   const el = document.getElementById('rpt-notes-body');
-  if (!el) return { notes_html: '', notes_text: '' };
+  if (!el) { log.warn('Notes panel not found'); return { notes_html: '', notes_text: '' }; }
   const notes_html = el.innerHTML || '';
-  // textContent is more reliable than innerText on contenteditable across browsers
-  const notes_text = (el.textContent || el.innerText || '').replace(/ /g, ' ').trim();
-  if (notes_text) log.info(`Including notes in export (${notes_text.length} chars)`);
+  // innerText preserves visible line breaks; replace non-breaking spaces before trim
+  const raw = (el.innerText !== undefined ? el.innerText : el.textContent) || '';
+  const notes_text = raw.replace(/ /g, ' ').trim();
+  log.info(notes_text ? 'Notes captured: ' + notes_text.length + ' chars' : 'No notes to include');
   return { notes_html, notes_text };
 }
 
