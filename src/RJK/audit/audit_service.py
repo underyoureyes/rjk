@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS agg_store (
 _MIGRATIONS = [
     "ALTER TABLE audit_signoffs ADD COLUMN params TEXT",
     "ALTER TABLE agg_store ADD COLUMN persisted_by TEXT",
+    "ALTER TABLE agg_store ADD COLUMN last_accessed_at TEXT",
 ]
 
 
@@ -156,7 +157,8 @@ class AuditService:
                     a.group_by    AS persist_group_by,
                     a.value_cols  AS persist_value_cols,
                     a.persisted_by,
-                    a.created_at  AS persisted_at
+                    a.created_at      AS persisted_at,
+                    a.last_accessed_at
                 FROM audit_signoffs s
                 LEFT JOIN agg_store a ON a.run_id = s.run_id
                 ORDER BY s.signed_off_at DESC
@@ -201,6 +203,13 @@ class AuditService:
                 ),
             )
             return cur.lastrowid
+
+    def update_agg_access(self, name: str) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE agg_store SET last_accessed_at = ? WHERE name = ?",
+                (datetime.now(timezone.utc).isoformat(), name),
+            )
 
     def get_agg_persists(self, limit: int = 100) -> list[dict]:
         with self._connect() as conn:

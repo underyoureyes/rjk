@@ -98,9 +98,28 @@ class ChartService:
 
         fig.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='#f8f9fb',
             margin=dict(l=40, r=20, t=60, b=40),
             showlegend=show_legend,
+            colorway=['#003087', '#0d6efd', '#2ea043', '#e85d04', '#ffb703',
+                      '#6f42c1', '#0dcaf0', '#dc3545', '#20c997', '#fd7e14'],
+            xaxis=dict(
+                showgrid=True,
+                gridcolor='#dee2e6',
+                gridwidth=1,
+                zeroline=True,
+                zerolinecolor='#adb5bd',
+                linecolor='#ced4da',
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='#dee2e6',
+                gridwidth=1,
+                zeroline=True,
+                zerolinecolor='#adb5bd',
+                linecolor='#ced4da',
+            ),
+            font=dict(family='system-ui, -apple-system, sans-serif', size=12, color='#212529'),
         )
         return json.loads(fig.to_json())
 

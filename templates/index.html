@@ -246,6 +246,7 @@
 
   /* Misc */
   .section-title { font-size: .75rem; font-weight: 700; letter-spacing: .08em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
+  #rpt-notes-body:empty:before { content: attr(placeholder); color: var(--text-muted); pointer-events: none; font-style: italic; }
   .empty-state { color: var(--text-muted); font-size: .85rem; text-align: center; padding: 48px 0; }
   .btn-rjk { background: var(--rjk-blue); color: #fff; border: none; }
   .btn-rjk:hover { background: var(--rjk-blue-hv); color: #fff; }
@@ -332,7 +333,11 @@
     <ul class="nav nav-tabs mb-3" id="mainTabs">
       <li class="nav-item">
         <a class="nav-link active" href="#" data-tab="tab-reports">
-          <i class="bi bi-bar-chart me-1"></i>Reports</a>
+          <i class="bi bi-bar-chart me-1"></i>Data</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" data-tab="tab-reporting">
+          <i class="bi bi-bar-chart-line me-1"></i>Reporting</a>
       </li>
       <li class="nav-item">
         <a class="nav-link" href="#" data-tab="tab-audit">
@@ -376,10 +381,6 @@
           <li class="nav-item">
             <a class="nav-link" href="#" data-report-tab="tab-aggs">
               <i class="bi bi-stack me-1"></i>Aggs</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#" data-report-tab="tab-reporting">
-              <i class="bi bi-bar-chart-line me-1"></i>Reporting</a>
           </li>
         </ul>
 
@@ -586,8 +587,13 @@
           </div>
         </div>
 
-        <!-- Reporting tab -->
-        <div id="tab-reporting" style="display:none;">
+      </div>
+    </div>
+
+    <!-- ============================================================
+         TAB: Reporting
+    ============================================================ -->
+    <div id="tab-reporting" style="display:none;">
 
           <!-- Quick-chart banner (shown when raw data loaded but no persisted dataset) -->
           <div id="rpt-quickchart-banner" class="alert alert-info py-2 px-3 mb-2 small d-flex align-items-center gap-2" style="display:none !important;">
@@ -643,9 +649,102 @@
               </div>
 
               <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="rpt-show-legend">
+                <input class="form-check-input" type="checkbox" id="rpt-show-legend" onchange="applyChartStyle()">
                 <label class="form-check-label small" for="rpt-show-legend">Show Legend</label>
               </div>
+
+              <!-- Chart Style panel -->
+              <details id="rpt-style-panel">
+                <summary class="fw-semibold small" style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.4rem;">
+                  <i class="bi bi-palette2"></i>Chart Style
+                  <i class="bi bi-chevron-down ms-auto rpt-style-chevron" style="font-size:.7rem;"></i>
+                </summary>
+                <div style="display:flex;flex-direction:column;gap:.6rem;margin-top:.6rem;">
+
+                  <!-- Palette presets -->
+                  <div>
+                    <label class="form-label small mb-1" style="color:var(--text-muted);">Colour Palette</label>
+                    <div id="rpt-palette-grid" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
+                  </div>
+
+                  <!-- Background colour -->
+                  <div class="d-flex align-items-center justify-content-between">
+                    <label class="form-label small mb-0" style="color:var(--text-muted);">Background</label>
+                    <input type="color" id="rpt-bgcolor" value="#f8f9fb" class="form-control form-control-color p-0"
+                           style="width:32px;height:24px;border:none;cursor:pointer;" oninput="applyChartStyle()">
+                  </div>
+
+                  <!-- Grid -->
+                  <div>
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                      <label class="form-label small mb-0" style="color:var(--text-muted);">Grid Lines</label>
+                      <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="rpt-show-grid" checked onchange="applyChartStyle()">
+                      </div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between" id="rpt-gridcolor-row">
+                      <label class="form-label small mb-0" style="color:var(--text-muted);">Grid Colour</label>
+                      <input type="color" id="rpt-gridcolor" value="#dee2e6" class="form-control form-control-color p-0"
+                             style="width:32px;height:24px;border:none;cursor:pointer;" oninput="applyChartStyle()">
+                    </div>
+                  </div>
+
+                  <!-- Font size -->
+                  <div class="d-flex align-items-center justify-content-between">
+                    <label class="form-label small mb-0" style="color:var(--text-muted);">Font Size</label>
+                    <input type="number" id="rpt-fontsize" value="12" min="8" max="24"
+                           class="form-control form-control-sm text-center" style="width:60px;"
+                           oninput="applyChartStyle()">
+                  </div>
+
+                  <!-- Font colour -->
+                  <div class="d-flex align-items-center justify-content-between">
+                    <label class="form-label small mb-0" style="color:var(--text-muted);">Font Colour</label>
+                    <input type="color" id="rpt-fontcolor" value="#212529" class="form-control form-control-color p-0"
+                           style="width:32px;height:24px;border:none;cursor:pointer;" oninput="applyChartStyle()">
+                  </div>
+
+                  <!-- Text formatting -->
+                  <div>
+                    <label class="form-label small mb-1" style="color:var(--text-muted);">Title</label>
+                    <div class="d-flex gap-1 align-items-center">
+                      <div class="btn-group btn-group-sm flex-grow-1" role="group" aria-label="Title align">
+                        <input type="radio" class="btn-check" name="rpt-title-align" id="rpt-align-left"   value="left"   onchange="applyChartStyle()">
+                        <label class="btn btn-outline-secondary py-0" for="rpt-align-left"><i class="bi bi-text-left"></i></label>
+                        <input type="radio" class="btn-check" name="rpt-title-align" id="rpt-align-center" value="center" checked onchange="applyChartStyle()">
+                        <label class="btn btn-outline-secondary py-0" for="rpt-align-center"><i class="bi bi-text-center"></i></label>
+                        <input type="radio" class="btn-check" name="rpt-title-align" id="rpt-align-right"  value="right"  onchange="applyChartStyle()">
+                        <label class="btn btn-outline-secondary py-0" for="rpt-align-right"><i class="bi bi-text-right"></i></label>
+                      </div>
+                      <div class="form-check mb-0 ms-1 d-flex align-items-center gap-1">
+                        <input class="form-check-input mt-0" type="checkbox" id="rpt-title-bold" onchange="applyChartStyle()">
+                        <label class="form-check-label small fw-bold" for="rpt-title-bold">B</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="form-label small mb-1" style="color:var(--text-muted);">Axis Labels</label>
+                    <div class="d-flex gap-2 align-items-center">
+                      <div class="form-check mb-0 d-flex align-items-center gap-1">
+                        <input class="form-check-input mt-0" type="checkbox" id="rpt-axis-bold" onchange="applyChartStyle()">
+                        <label class="form-check-label small fw-bold" for="rpt-axis-bold">B Bold</label>
+                      </div>
+                      <div class="d-flex align-items-center gap-1 ms-auto">
+                        <label class="form-label small mb-0" style="color:var(--text-muted);">Size</label>
+                        <input type="number" id="rpt-axisfontsize" value="11" min="6" max="20"
+                               class="form-control form-control-sm text-center" style="width:52px;"
+                               oninput="applyChartStyle()">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Reset -->
+                  <button class="btn btn-sm btn-outline-secondary w-100 mt-1" onclick="resetChartStyle()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Defaults
+                  </button>
+                </div>
+              </details>
 
               <div class="d-flex gap-2 mt-auto">
                 <button class="btn btn-rjk btn-sm flex-grow-1" onclick="generateChart()">
@@ -694,6 +793,53 @@
                   <div style="font-size:1.1rem;font-weight:600;letter-spacing:.04em;">Generating chart…</div>
                 </div>
                 <div id="rpt-chart" style="width:100%;height:560px;display:none;"></div>
+              </div>
+
+              <!-- ── Notes panel ─────────────────────────────────────── -->
+              <div id="rpt-notes-panel" style="background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+                <!-- Toolbar -->
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:3px;padding:.4rem .6rem;border-bottom:1px solid var(--border);background:var(--bg-card);">
+                  <span class="small fw-semibold me-1" style="color:var(--text-muted);white-space:nowrap;"><i class="bi bi-pencil-square me-1"></i>Notes</span>
+                  <div class="vr mx-1" style="height:20px;"></div>
+                  <!-- Bold / Italic / Underline -->
+                  <button class="btn btn-sm btn-outline-secondary py-0 px-2 fw-bold" title="Bold (Ctrl+B)"     onclick="notesCmd('bold');return false;"><b>B</b></button>
+                  <button class="btn btn-sm btn-outline-secondary py-0 px-2 fst-italic" title="Italic (Ctrl+I)"  onclick="notesCmd('italic');return false;"><i>I</i></button>
+                  <button class="btn btn-sm btn-outline-secondary py-0 px-2" title="Underline (Ctrl+U)" onclick="notesCmd('underline');return false;" style="text-decoration:underline;">U</button>
+                  <div class="vr mx-1" style="height:20px;"></div>
+                  <!-- Alignment -->
+                  <button class="btn btn-sm btn-outline-secondary py-0 px-2" title="Align left"    onclick="notesCmd('justifyLeft');return false;"><i class="bi bi-text-left"></i></button>
+                  <button class="btn btn-sm btn-outline-secondary py-0 px-2" title="Align centre"  onclick="notesCmd('justifyCenter');return false;"><i class="bi bi-text-center"></i></button>
+                  <button class="btn btn-sm btn-outline-secondary py-0 px-2" title="Align right"   onclick="notesCmd('justifyRight');return false;"><i class="bi bi-text-right"></i></button>
+                  <div class="vr mx-1" style="height:20px;"></div>
+                  <!-- Font size -->
+                  <select class="form-select form-select-sm py-0" style="width:70px;height:26px;font-size:.78rem;" title="Font size"
+                          onchange="notesCmd('fontSize', this.value); this.blur();">
+                    <option value="1">8pt</option>
+                    <option value="2">10pt</option>
+                    <option value="3" selected>12pt</option>
+                    <option value="4">14pt</option>
+                    <option value="5">18pt</option>
+                    <option value="6">24pt</option>
+                    <option value="7">36pt</option>
+                  </select>
+                  <!-- Font colour -->
+                  <input type="color" id="rpt-notes-color" value="#212529" title="Font colour"
+                         class="form-control form-control-color p-0" style="width:28px;height:26px;border:none;cursor:pointer;"
+                         oninput="notesCmd('foreColor', this.value)">
+                  <!-- Highlight colour -->
+                  <input type="color" id="rpt-notes-highlight" value="#ffff00" title="Highlight colour"
+                         class="form-control form-control-color p-0" style="width:28px;height:26px;border:none;cursor:pointer;"
+                         oninput="notesCmd('hiliteColor', this.value)">
+                  <div class="vr mx-1" style="height:20px;"></div>
+                  <!-- Clear -->
+                  <button class="btn btn-sm btn-outline-danger py-0 px-2 ms-auto" title="Clear notes" onclick="document.getElementById('rpt-notes-body').innerHTML='';return false;">
+                    <i class="bi bi-trash3"></i>
+                  </button>
+                </div>
+                <!-- Editable body -->
+                <div id="rpt-notes-body" contenteditable="true"
+                     style="min-height:80px;max-height:200px;overflow-y:auto;padding:.6rem .8rem;font-size:.9rem;line-height:1.6;outline:none;color:var(--text-primary);"
+                     placeholder="Add notes, commentary or context for this chart…"></div>
               </div>
             </div>
 
@@ -746,9 +892,6 @@
             </div>
           </div>
 
-        </div>
-
-      </div>
     </div>
 
     <!-- ============================================================
@@ -1218,13 +1361,13 @@ function switchTab(tabId) {
   document.querySelectorAll('[data-tab]').forEach(a => a.classList.remove('active'));
   document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
 
-  ['tab-reports', 'tab-audit', 'tab-logs', 'tab-admin'].forEach(id => {
+  ['tab-reports', 'tab-reporting', 'tab-audit', 'tab-logs', 'tab-admin'].forEach(id => {
     document.getElementById(id).style.display = (id === tabId) ? '' : 'none';
   });
 
-  // Hide sidebar on Logs/Audit/Admin; restore user preference elsewhere
+  // Hide sidebar on Logs/Audit/Admin/Reporting; restore user preference elsewhere
   const sidebar = document.getElementById('sidebar');
-  if (tabId === 'tab-logs' || tabId === 'tab-audit' || tabId === 'tab-admin') {
+  if (tabId === 'tab-logs' || tabId === 'tab-audit' || tabId === 'tab-admin' || tabId === 'tab-reporting') {
     sidebar.classList.add('collapsed');
     document.getElementById('sidebar-toggle').style.display = 'none';
   } else {
@@ -1235,6 +1378,7 @@ function switchTab(tabId) {
 
   if (tabId === 'tab-audit') loadAudit();
   if (tabId === 'tab-admin') adminInit();
+  if (tabId === 'tab-reporting') initReportingTab();
 }
 
 let _sidebarUserCollapsed = false;
@@ -1290,11 +1434,10 @@ document.querySelectorAll('[data-tab]').forEach(a => {
 function switchReportTab(tabId) {
   document.querySelectorAll('[data-report-tab]').forEach(a => a.classList.remove('active'));
   document.querySelector(`[data-report-tab="${tabId}"]`).classList.add('active');
-  ['tab-raw-data', 'tab-aggs', 'tab-reporting'].forEach(id => {
+  ['tab-raw-data', 'tab-aggs'].forEach(id => {
     document.getElementById(id).style.display = (id === tabId) ? '' : 'none';
   });
   if (tabId === 'tab-aggs') refreshAggsState();
-  if (tabId === 'tab-reporting') initReportingTab();
 }
 
 document.addEventListener('click', e => {
@@ -2943,10 +3086,121 @@ const RPT_TYPES = [
 let _rptChartType  = 'bar';
 let _rptInitDone   = false;
 
+// ── Chart Style ──────────────────────────────────────────────────
+const _PALETTES = {
+  'RJK':     ['#003087','#0d6efd','#2ea043','#e85d04','#ffb703','#6f42c1','#0dcaf0','#dc3545','#20c997','#fd7e14'],
+  'Plotly':  ['#636efa','#ef553b','#00cc96','#ab63fa','#ffa15a','#19d3f3','#ff6692','#b6e880','#ff97ff','#fecb52'],
+  'Pastel':  ['#a8d8ea','#aa96da','#fcbad3','#ffffd2','#c7f2a4','#f5cba7','#d7bde2','#aed6f1','#a9dfbf','#f9e79f'],
+  'Vibrant': ['#e63946','#f4a261','#2a9d8f','#457b9d','#06d6a0','#118ab2','#ffd166','#ef476f','#073b4c','#26547c'],
+  'Mono':    ['#111111','#333333','#555555','#777777','#999999','#bbbbbb'],
+};
+let _activePalette = 'RJK';
+
+const _STYLE_DEFAULTS = { bgcolor: '#f8f9fb', gridcolor: '#dee2e6', showgrid: true, fontsize: 12, fontcolor: '#212529' };
+
+function _initStylePanel() {
+  const grid = document.getElementById('rpt-palette-grid');
+  if (!grid || grid.children.length) return;
+  Object.keys(_PALETTES).forEach(name => {
+    const swatches = _PALETTES[name].slice(0, 5).map(c =>
+      `<span style="display:inline-block;width:10px;height:14px;background:${c};border-radius:2px;"></span>`
+    ).join('');
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm btn-outline-secondary py-0 px-1';
+    btn.id = `rpt-palette-${name}`;
+    btn.style.cssText = 'font-size:.65rem;line-height:1.6;display:flex;align-items:center;gap:3px;';
+    btn.innerHTML = `${swatches}<span>${name}</span>`;
+    btn.onclick = () => { _activePalette = name; _highlightActivePalette(); applyChartStyle(); };
+    grid.appendChild(btn);
+  });
+  _highlightActivePalette();
+  // Chevron toggle for <details>
+  document.getElementById('rpt-style-panel').addEventListener('toggle', function() {
+    document.querySelector('.rpt-style-chevron').className =
+      'bi ms-auto rpt-style-chevron ' + (this.open ? 'bi-chevron-up' : 'bi-chevron-down');
+    document.querySelector('.rpt-style-chevron').style.fontSize = '.7rem';
+  });
+}
+
+function _highlightActivePalette() {
+  Object.keys(_PALETTES).forEach(n => {
+    const b = document.getElementById(`rpt-palette-${n}`);
+    if (b) { b.className = 'btn btn-sm py-0 px-1 ' + (n === _activePalette ? 'btn-rjk' : 'btn-outline-secondary'); }
+  });
+}
+
+function applyChartStyle() {
+  const el = document.getElementById('rpt-chart');
+  if (!el || !window.Plotly || el.style.display === 'none') return;
+
+  const showGrid   = document.getElementById('rpt-show-grid').checked;
+  document.getElementById('rpt-gridcolor-row').style.display = showGrid ? '' : 'none';
+  const gc         = document.getElementById('rpt-gridcolor').value;
+  const titleBold  = document.getElementById('rpt-title-bold').checked;
+  const axisBold   = document.getElementById('rpt-axis-bold').checked;
+  const axisFs     = parseInt(document.getElementById('rpt-axisfontsize').value) || 11;
+  const alignVal   = document.querySelector('input[name="rpt-title-align"]:checked')?.value ?? 'center';
+  const alignX     = alignVal === 'left' ? 0.02 : alignVal === 'right' ? 0.98 : 0.5;
+
+  // Read the raw title from the input field and apply bold wrapping
+  const rawTitle   = (document.getElementById('rpt-title').value || '').trim();
+  const titleText  = titleBold && rawTitle ? `<b>${rawTitle}</b>` : rawTitle;
+
+  const axisFont   = { size: axisFs, weight: axisBold ? 'bold' : 'normal' };
+
+  Plotly.relayout(el, {
+    'title.text':         titleText,
+    'title.x':            alignX,
+    'title.xanchor':      alignVal,
+    'title.font.weight':  titleBold ? 'bold' : 'normal',
+    plot_bgcolor:         document.getElementById('rpt-bgcolor').value,
+    colorway:             _PALETTES[_activePalette],
+    showlegend:           document.getElementById('rpt-show-legend').checked,
+    'font.size':          parseInt(document.getElementById('rpt-fontsize').value) || 12,
+    'font.color':         document.getElementById('rpt-fontcolor').value,
+    'xaxis.showgrid':     showGrid,
+    'xaxis.gridcolor':    gc,
+    'xaxis.zeroline':     showGrid,
+    'xaxis.zerolinecolor': gc,
+    'xaxis.title.font':   axisFont,
+    'yaxis.showgrid':     showGrid,
+    'yaxis.gridcolor':    gc,
+    'yaxis.zeroline':     showGrid,
+    'yaxis.zerolinecolor': gc,
+    'yaxis.title.font':   axisFont,
+  });
+
+  // Repaint each trace individually — batch restyle won't override baked-in PX colours reliably
+  if (el.data && el.data.length) {
+    const palette = _PALETTES[_activePalette];
+    el.data.forEach((trace, i) => {
+      const c = palette[i % palette.length];
+      Plotly.restyle(el, { 'marker.color': c, 'line.color': c }, [i]);
+    });
+  }
+}
+
+function resetChartStyle() {
+  document.getElementById('rpt-bgcolor').value      = _STYLE_DEFAULTS.bgcolor;
+  document.getElementById('rpt-gridcolor').value    = _STYLE_DEFAULTS.gridcolor;
+  document.getElementById('rpt-show-grid').checked  = _STYLE_DEFAULTS.showgrid;
+  document.getElementById('rpt-fontsize').value     = _STYLE_DEFAULTS.fontsize;
+  document.getElementById('rpt-fontcolor').value    = _STYLE_DEFAULTS.fontcolor;
+  document.getElementById('rpt-title-bold').checked = false;
+  document.getElementById('rpt-axis-bold').checked  = false;
+  document.getElementById('rpt-axisfontsize').value = 11;
+  const centerRadio = document.getElementById('rpt-align-center');
+  if (centerRadio) centerRadio.checked = true;
+  _activePalette = 'RJK';
+  _highlightActivePalette();
+  applyChartStyle();
+}
+
 function initReportingTab() {
   if (!_rptInitDone) {
     _rptInitDone = true;
     _renderRptTypeGrid();
+    _initStylePanel();
     loadRptDatasets();
   }
 }
@@ -3153,6 +3407,7 @@ async function selectRptDataset(name) {
       fetch(`/api/aggs/persisted/${enc}`).then(r => r.json()),
       fetch(`/api/aggs/persisted/${enc}/rows`).then(r => r.json()),
     ]);
+    fetch(`/api/aggs/persisted/${enc}/access`, { method: 'POST' }).catch(() => {});
     _fillRptSelectors(columns);
     document.getElementById('rpt-title').value =
       name.replace(/_\d{8,}.*$/, '').replace(/_/g, ' ').trim();
@@ -3248,6 +3503,19 @@ async function generateChart() {
     fig.layout = fig.layout || {};
     fig.layout.height = 540;
     fig.layout.margin = { ...(fig.layout.margin || {}), t: 50, r: 30, b: 60, l: 60 };
+    // Read current style controls (fall back to defaults if panel not yet initialised)
+    const _bg       = document.getElementById('rpt-bgcolor')?.value    ?? '#f8f9fb';
+    const _gc       = document.getElementById('rpt-gridcolor')?.value  ?? '#dee2e6';
+    const _showGrid = document.getElementById('rpt-show-grid')?.checked ?? true;
+    const _fs       = parseInt(document.getElementById('rpt-fontsize')?.value) || 12;
+    const _fc       = document.getElementById('rpt-fontcolor')?.value  ?? '#212529';
+    fig.layout.plot_bgcolor  = _bg;
+    fig.layout.paper_bgcolor = 'rgba(0,0,0,0)';
+    fig.layout.colorway      = _PALETTES[_activePalette] ?? _PALETTES['RJK'];
+    fig.layout.font          = { family: 'system-ui,-apple-system,sans-serif', size: _fs, color: _fc };
+    const _axisDefaults = { showgrid: _showGrid, gridcolor: _gc, gridwidth: 1, zeroline: _showGrid, zerolinecolor: _gc, linecolor: '#ced4da' };
+    fig.layout.xaxis = { ..._axisDefaults, ...(fig.layout.xaxis || {}) };
+    fig.layout.yaxis = { ..._axisDefaults, ...(fig.layout.yaxis || {}) };
     Plotly.react(elChart, fig.data, fig.layout, {
       responsive: true,
       scrollZoom: true,
@@ -3280,14 +3548,36 @@ function _unlockExportBtns() {
   if (btn.dataset._origHtml) btn.innerHTML = btn.dataset._origHtml;
 }
 
+function notesCmd(cmd, val) {
+  document.getElementById('rpt-notes-body').focus();
+  document.execCommand(cmd, false, val ?? null);
+}
+
+function _notesPayload() {
+  const el = document.getElementById('rpt-notes-body');
+  if (!el) return { notes_html: '', notes_text: '' };
+  const notes_html = el.innerHTML || '';
+  // textContent is more reliable than innerText on contenteditable across browsers
+  const notes_text = (el.textContent || el.innerText || '').replace(/ /g, ' ').trim();
+  if (notes_text) log.info(`Including notes in export (${notes_text.length} chars)`);
+  return { notes_html, notes_text };
+}
+
 async function exportChartPng() {
   if (!_lastChartFig) return;
   _lockExportBtns();
   try {
     await _ensurePlotly();
-    const el = document.getElementById('rpt-chart');
-    const name = (document.getElementById('rpt-title').value || 'chart').replace(/\s+/g,'_');
-    await Plotly.downloadImage(el, { format: 'png', filename: name, width: 1400, height: 700 });
+    const el    = document.getElementById('rpt-chart');
+    const name  = (document.getElementById('rpt-title').value || 'chart').replace(/\s+/g,'_');
+    const notes = document.getElementById('rpt-notes-body')?.innerText?.trim() || '';
+    // Temporarily add notes as a chart annotation, remove after export
+    if (notes) {
+      await Plotly.relayout(el, { annotations: [{ text: notes, xref:'paper', yref:'paper',
+        x: 0.5, y: -0.12, showarrow: false, font: { size: 11, color: '#444' }, xanchor:'center' }] });
+    }
+    await Plotly.downloadImage(el, { format: 'png', filename: name, width: 1400, height: notes ? 800 : 700 });
+    if (notes) await Plotly.relayout(el, { annotations: [] });
     log.success('Chart PNG downloaded');
   } catch (e) { log.error('Chart PNG failed: ' + e.message); }
   finally { _unlockExportBtns(); }
@@ -3303,7 +3593,7 @@ async function exportChartPdf() {
     const res = await fetch('/api/reporting/chart-export/pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fig: _lastChartFig, title, filename: name }),
+      body: JSON.stringify({ fig: _lastChartFig, title, filename: name, ..._notesPayload() }),
     });
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
     _triggerDownload(await res.blob(), name + '.pdf');
@@ -3322,7 +3612,7 @@ async function exportChartPpt() {
     const res = await fetch('/api/reporting/chart-export/ppt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fig: _lastChartFig, title, filename: name }),
+      body: JSON.stringify({ fig: _lastChartFig, title, filename: name, ..._notesPayload() }),
     });
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
     _triggerDownload(await res.blob(), name + '.pptx');

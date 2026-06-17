@@ -514,6 +514,16 @@ def get_persisted_agg_rows(name: str):
     return {"rows": data.get("rows", [])}
 
 
+@app.post("/api/aggs/persisted/{name}/access")
+def record_agg_access(name: str):
+    aggs_dir = Path(config.audit_db_path).parent / "aggs"
+    path = (aggs_dir / f"{name}.json").resolve()
+    if not str(path).startswith(str(aggs_dir.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid dataset name")
+    audit.update_agg_access(name)
+    return {"ok": True}
+
+
 @app.post("/api/reporting/chart")
 async def generate_chart(request: Request):
     body = await request.json()
@@ -573,16 +583,18 @@ def _chart_to_png_bytes(fig_dict: dict) -> bytes:
 
 @app.post("/api/reporting/chart-export/pdf")
 async def chart_export_pdf(request: Request):
-    body     = await request.json()
-    fig_dict = body.get("fig", {})
-    title    = body.get("title", "Chart")
-    filename = (body.get("filename") or "chart") + ".pdf"
+    body       = await request.json()
+    fig_dict   = body.get("fig", {})
+    title      = body.get("title", "Chart")
+    filename   = (body.get("filename") or "chart") + ".pdf"
+    notes_html = (body.get("notes_html") or "").strip()
     try:
         png_bytes = _chart_to_png_bytes(fig_dict)
         from reportlab.lib.pagesizes import A4, landscape
         from reportlab.platypus import SimpleDocTemplate, Image as RLImage, Paragraph, Spacer
-        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import cm
+        from reportlab.lib.enums import TA_LEFT
         import io as _io
         buf = _io.BytesIO()
         doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=1.5*cm,
@@ -590,8 +602,20 @@ async def chart_export_pdf(request: Request):
         styles = getSampleStyleSheet()
         img_buf = _io.BytesIO(png_bytes)
         pw = landscape(A4)[0] - 3*cm
-        img = RLImage(img_buf, width=pw, height=pw*0.5)
+        # Shrink chart slightly if there are notes to leave room
+        img_h = pw * 0.42 if notes_html else pw * 0.5
+        img = RLImage(img_buf, width=pw, height=img_h)
         story = [Paragraph(title, styles["Title"]), Spacer(1, 0.3*cm), img]
+        if notes_html:
+            import re as _re
+            from reportlab.lib.colors import HexColor
+            # Strip tags ReportLab doesn't support; keep b/i/u/br/font/span
+            safe = _re.sub(r'<(?!/?(?:b|i|u|br|p|span|font)[>\s/])[^>]+>', ' ', notes_html)
+            safe = _re.sub(r'\s+', ' ', safe).strip()
+            notes_style = ParagraphStyle("Notes", parent=styles["Normal"],
+                                         fontSize=10, leading=14, spaceBefore=0.4*cm,
+                                         textColor=HexColor("#333333"), alignment=TA_LEFT)
+            story += [Spacer(1, 0.3*cm), Paragraph(safe, notes_style)]
         doc.build(story)
         buf.seek(0)
         return StreamingResponse(buf, media_type="application/pdf",
@@ -603,10 +627,11 @@ async def chart_export_pdf(request: Request):
 
 @app.post("/api/reporting/chart-export/ppt")
 async def chart_export_ppt(request: Request):
-    body     = await request.json()
-    fig_dict = body.get("fig", {})
-    title    = body.get("title", "Chart")
-    filename = (body.get("filename") or "chart") + ".pptx"
+    body       = await request.json()
+    fig_dict   = body.get("fig", {})
+    title      = body.get("title", "Chart")
+    filename   = (body.get("filename") or "chart") + ".pptx"
+    notes_text = (body.get("notes_text") or "").strip()
     try:
         png_bytes = _chart_to_png_bytes(fig_dict)
         from pptx import Presentation
@@ -625,9 +650,26 @@ async def chart_export_ppt(request: Request):
         tf.paragraphs[0].runs[0].font.size  = Pt(24)
         tf.paragraphs[0].runs[0].font.bold  = True
         tf.paragraphs[0].runs[0].font.color.rgb = RGBColor(0x00, 0x30, 0x87)
-        # Chart image
+        # Chart image — shrink to leave room for notes when present
+        img_top = Inches(0.85)
+        if notes_text:
+            img_h    = Inches(4.8)
+            notes_h  = Inches(1.5)
+            notes_top = Inches(7.5) - notes_h - Inches(0.15)  # pin to bottom of slide
+        else:
+            img_h    = Inches(6.4)
         img_buf = _io.BytesIO(png_bytes)
-        slide.shapes.add_picture(img_buf, Inches(0.2), Inches(0.85), Inches(12.9), Inches(6.4))
+        slide.shapes.add_picture(img_buf, Inches(0.2), img_top, Inches(12.9), img_h)
+        # Notes text box pinned to bottom of slide
+        if notes_text:
+            ntxb = slide.shapes.add_textbox(Inches(0.4), notes_top, Inches(12.5), notes_h)
+            ntf  = ntxb.text_frame
+            ntf.word_wrap = True
+            p = ntf.paragraphs[0]
+            run = p.add_run()
+            run.text = notes_text
+            run.font.size  = Pt(11)
+            run.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
         out = _io.BytesIO()
         prs.save(out)
         out.seek(0)
