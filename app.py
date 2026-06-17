@@ -587,14 +587,14 @@ async def chart_export_pdf(request: Request):
     fig_dict   = body.get("fig", {})
     title      = body.get("title", "Chart")
     filename   = (body.get("filename") or "chart") + ".pdf"
-    notes_html = (body.get("notes_html") or "").strip()
+    notes_text = (body.get("notes_text") or "").strip()
     try:
         png_bytes = _chart_to_png_bytes(fig_dict)
         from reportlab.lib.pagesizes import A4, landscape
         from reportlab.platypus import SimpleDocTemplate, Image as RLImage, Paragraph, Spacer
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import cm
-        from reportlab.lib.enums import TA_LEFT
+        from reportlab.lib.colors import HexColor
         import io as _io
         buf = _io.BytesIO()
         doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=1.5*cm,
@@ -602,20 +602,16 @@ async def chart_export_pdf(request: Request):
         styles = getSampleStyleSheet()
         img_buf = _io.BytesIO(png_bytes)
         pw = landscape(A4)[0] - 3*cm
-        # Shrink chart slightly if there are notes to leave room
-        img_h = pw * 0.42 if notes_html else pw * 0.5
+        img_h = pw * 0.42 if notes_text else pw * 0.5
         img = RLImage(img_buf, width=pw, height=img_h)
         story = [Paragraph(title, styles["Title"]), Spacer(1, 0.3*cm), img]
-        if notes_html:
-            import re as _re
-            from reportlab.lib.colors import HexColor
-            # Strip tags ReportLab doesn't support; keep b/i/u/br/font/span
-            safe = _re.sub(r'<(?!/?(?:b|i|u|br|p|span|font)[>\s/])[^>]+>', ' ', notes_html)
-            safe = _re.sub(r'\s+', ' ', safe).strip()
-            notes_style = ParagraphStyle("Notes", parent=styles["Normal"],
-                                         fontSize=10, leading=14, spaceBefore=0.4*cm,
-                                         textColor=HexColor("#333333"), alignment=TA_LEFT)
-            story += [Spacer(1, 0.3*cm), Paragraph(safe, notes_style)]
+        if notes_text:
+            notes_style = ParagraphStyle(
+                "Notes", parent=styles["Normal"],
+                fontSize=10, leading=14, spaceAfter=0,
+                textColor=HexColor("#333333"),
+            )
+            story += [Spacer(1, 0.4*cm), Paragraph(notes_text, notes_style)]
         doc.build(story)
         buf.seek(0)
         return StreamingResponse(buf, media_type="application/pdf",
