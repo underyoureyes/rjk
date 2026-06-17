@@ -604,7 +604,10 @@
               <div>
                 <div class="d-flex align-items-center mb-1">
                   <label class="form-label fw-semibold small mb-0">Dataset</label>
-                  <button class="btn btn-sm btn-outline-secondary ms-auto py-0 px-1" onclick="loadRptDatasets()" title="Refresh"><i class="bi bi-arrow-clockwise"></i></button>
+                  <div class="ms-auto d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-success py-0 px-1" onclick="exportRptDatasetList()" title="Export filtered dataset list to Excel"><i class="bi bi-file-earmark-excel"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary py-0 px-1" onclick="loadRptDatasets()" title="Refresh"><i class="bi bi-arrow-clockwise"></i></button>
+                  </div>
                 </div>
                 <input type="text" class="form-control form-control-sm mb-1" id="rpt-filter-user"
                        placeholder="Filter by user…" oninput="filterRptDatasets()">
@@ -2988,15 +2991,59 @@ async function loadRptDatasets() {
   _refreshQuickChartEntry();
 }
 
+let _rptFilteredDatasets = [];
+
 function filterRptDatasets() {
   const userQ = (document.getElementById('rpt-filter-user').value || '').toLowerCase();
   const dateQ = document.getElementById('rpt-filter-date').value;   // 'YYYY-MM-DD' or ''
-  const filtered = _rptAllDatasets.filter(d => {
+  _rptFilteredDatasets = _rptAllDatasets.filter(d => {
     if (userQ && !(d.persisted_by || '').toLowerCase().includes(userQ)) return false;
     if (dateQ && d.created_at && d.created_at.slice(0, 10) < dateQ) return false;
     return true;
   });
-  _renderRptDatasetList(filtered);
+  _renderRptDatasetList(_rptFilteredDatasets);
+}
+
+function exportRptDatasetList() {
+  const rows = _rptFilteredDatasets;
+  if (!rows.length) { log.warn('No datasets to export (check filters)'); return; }
+
+  const userQ = (document.getElementById('rpt-filter-user').value || '').trim();
+  const dateQ = document.getElementById('rpt-filter-date').value || '';
+
+  // Flatten each record into a clean export row
+  const data = rows.map(d => ({
+    'Name':              d.name,
+    'Report Path':       d.report_path,
+    'Run ID':            d.run_id ?? '',
+    'Format':            d.format || '',
+    'Storage Location':  d.storage_path || '',
+    'Size (bytes)':      d.size_bytes ?? '',
+    'Size (KB)':         d.size_bytes ? +(d.size_bytes / 1024).toFixed(2) : '',
+    'Rows (persisted)':  d.row_count ?? '',
+    'Rows (source)':     d.source_row_count ?? '',
+    'Group By':          _tryParse(d.group_by, []).join(', '),
+    'Value Columns':     Object.entries(_tryParse(d.value_cols, {})).map(([c,f]) => `${c}:${f}`).join(', '),
+    'Persisted By':      d.persisted_by || '',
+    'Persisted At':      d.created_at ? d.created_at.slice(0, 19).replace('T', ' ') : '',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  // Auto-width hint
+  const cols = Object.keys(data[0]).map(k => ({ wch: Math.max(k.length, 14) }));
+  ws['!cols'] = cols;
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Datasets');
+
+  const parts = ['datasets'];
+  if (dateQ)  parts.push(dateQ);
+  if (userQ)  parts.push(userQ.replace(/\s+/g,'_'));
+  const filename = parts.join('_') + '.xlsx';
+
+  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  _triggerDownload(new Blob([buf], { type: 'application/octet-stream' }), filename);
+  log.success(`Dataset list exported (${data.length} rows) → ${filename}`);
 }
 
 const _QUICK_NAME = '__raw_current__';
