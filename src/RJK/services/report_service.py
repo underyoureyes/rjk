@@ -4,8 +4,11 @@ from RJK.audit.audit_service import AuditService
 from RJK.config.loader import Config
 from RJK.parser.sql_metadata_parser import parse_sql_metadata
 from RJK.runners.base import BaseRunner
+from RJK.runners.file_runner import FileRunner
 from RJK.runners.mock_runner import MockRunner
 from RJK.runners.odbc_runner import OdbcRunner
+
+_UPLOAD_EXTENSIONS = {".csv", ".xlsx", ".xls"}
 
 
 class ReportService:
@@ -38,14 +41,17 @@ class ReportService:
         username: str | None = None,
         password: str | None = None,
     ) -> dict:
-        sql_path = self._resolve_path(report_path)
+        file_path = self._resolve_path(report_path)
         try:
-            if conn_string:
-                runner: BaseRunner = OdbcRunner(conn_string)
-                rows = runner.run(sql_path, params, limit,
-                                  conn_string=conn_string, username=username, password=password)
+            if file_path.suffix.lower() in _UPLOAD_EXTENSIONS:
+                runner: BaseRunner = FileRunner()
+            elif conn_string:
+                runner = OdbcRunner(conn_string)
             else:
-                rows = self.runner.run(sql_path, params, limit)
+                runner = self.runner
+            rows = runner.run(file_path, params, limit,
+                              **({"conn_string": conn_string, "username": username, "password": password}
+                                 if conn_string else {}))
             run_id = self.audit.log_run(report_path, params, run_by, len(rows), "success")
             return {"run_id": run_id, "rows": rows, "row_count": len(rows)}
         except Exception as exc:

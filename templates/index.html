@@ -304,9 +304,14 @@
     <div id="sidebar">
       <div class="sidebar-header d-flex align-items-center justify-content-between pe-2">
       <span>Reports</span>
-      <button class="btn btn-rjk btn-sm" style="padding:1px 7px;font-size:.7rem;" onclick="showCreateReportModal()" title="New report">
-        <i class="bi bi-plus-lg"></i>
-      </button>
+      <div class="d-flex gap-1">
+        <button class="btn btn-outline-secondary btn-sm" style="padding:1px 7px;font-size:.7rem;" onclick="showUploadModal()" title="Upload CSV / Excel file">
+          <i class="bi bi-upload"></i>
+        </button>
+        <button class="btn btn-rjk btn-sm" style="padding:1px 7px;font-size:.7rem;" onclick="showCreateReportModal()" title="New SQL report">
+          <i class="bi bi-plus-lg"></i>
+        </button>
+      </div>
     </div>
       <div id="report-tree">
         <div class="empty-state py-4"><i class="bi bi-hourglass-split me-1"></i>Loading…</div>
@@ -1324,24 +1329,41 @@ function renderTree(node, container, depth) {
       const el = document.createElement('div');
       el.className = 'tree-report';
       el.style.paddingLeft = (28 + depth * 12) + 'px';
-      const label = val.title || key.replace('.sql','');
-      el.innerHTML = `<i class="bi bi-file-earmark-text text-muted flex-shrink-0"></i><span class="tree-report-label" title="${label}">${label}</span>`;
+      const label = val.title || key.replace(/\.(sql|csv|xlsx|xls)$/i, '');
+      const isUpload = val.source === 'upload';
+      const ext = (val.path || '').split('.').pop().toLowerCase();
+      const icon = isUpload
+        ? (ext === 'csv' ? 'bi-filetype-csv text-warning' : 'bi-file-earmark-excel text-success')
+        : 'bi-file-earmark-text text-muted';
+      const badge = isUpload
+        ? `<span class="badge ms-1" style="font-size:.6rem;background:#1565c0;vertical-align:middle;">${ext.toUpperCase()}</span>`
+        : '';
+      el.innerHTML = `<i class="bi ${icon} flex-shrink-0"></i><span class="tree-report-label" title="${label}">${label}</span>${badge}`;
       el.dataset.path = val.path;
       el.dataset.fstype = 'report';
       el.dataset.label = label;
       el.addEventListener('click', () => selectReport(val));
       el.addEventListener('contextmenu', e => _treeCtxMenu(e, 'report', val.path, label));
 
-      // Popover with description + tags
+      // Popover
       const tags = (val.tags || []).map(t =>
         `<span class="badge rounded-pill bg-secondary me-1">${t}</span>`
       ).join('');
-      const popBody = (val.description || '') + (tags ? `<div class="mt-1">${tags}</div>` : '');
+      let popBody = val.description ? `<div>${val.description}</div>` : '';
+      if (isUpload) {
+        const meta = val;
+        if (meta.owner)      popBody += `<div class="mt-1 small"><b>Owner:</b> ${meta.owner}</div>`;
+        if (meta.row_count)  popBody += `<div class="small"><b>Rows:</b> ${Number(meta.row_count).toLocaleString()}</div>`;
+        if (meta.file_size)  popBody += `<div class="small"><b>Size:</b> ${(meta.file_size/1024).toFixed(1)} KB</div>`;
+        if (meta.upload_date) popBody += `<div class="small"><b>Uploaded:</b> ${meta.upload_date.slice(0,10)}</div>`;
+        if (meta.uploaded_by) popBody += `<div class="small"><b>By:</b> ${meta.uploaded_by}</div>`;
+      }
+      if (tags) popBody += `<div class="mt-1">${tags}</div>`;
       el.setAttribute('data-bs-toggle', 'popover');
       el.setAttribute('data-bs-trigger', 'hover');
       el.setAttribute('data-bs-placement', 'bottom');
       el.setAttribute('data-bs-html', 'true');
-      el.setAttribute('data-bs-title', val.title || key.replace('.sql', ''));
+      el.setAttribute('data-bs-title', val.title || key.replace(/\.(sql|csv|xlsx|xls)$/i, ''));
       el.setAttribute('data-bs-content', popBody);
 
       container.appendChild(el);
@@ -2258,6 +2280,91 @@ async function adminSaveScannerConfig() {
 // Create Report
 // ============================================================
 let _createReportModal = null;
+
+// ============================================================
+// Upload CSV / Excel report
+// ============================================================
+
+let _uploadModal = null;
+
+function showUploadModal() {
+  if (!_uploadModal) _uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
+  ['upload-title','upload-owner','upload-description','upload-folder','upload-tags'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('upload-file').value = '';
+  document.getElementById('upload-file-info').textContent = '';
+  document.getElementById('upload-progress').style.display = 'none';
+  document.getElementById('upload-result').style.display = 'none';
+  document.getElementById('upload-error').style.display = 'none';
+  document.getElementById('upload-submit-btn').disabled = true;
+  // Pre-fill owner from OS user
+  const user = document.getElementById('signed-by')?.value || '';
+  if (user) document.getElementById('upload-owner').value = user;
+  _uploadModal.show();
+}
+
+function uploadFileSelected(input) {
+  const file = input.files[0];
+  const btn  = document.getElementById('upload-submit-btn');
+  const info = document.getElementById('upload-file-info');
+  document.getElementById('upload-result').style.display = 'none';
+  document.getElementById('upload-error').style.display = 'none';
+  if (!file) { btn.disabled = true; info.textContent = ''; return; }
+  const kb = (file.size / 1024).toFixed(1);
+  info.textContent = `${file.name}  ·  ${kb} KB`;
+  if (!document.getElementById('upload-title').value) {
+    document.getElementById('upload-title').value = file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+  }
+  btn.disabled = false;
+}
+
+async function submitUpload() {
+  const fileInput = document.getElementById('upload-file');
+  if (!fileInput.files[0]) return;
+
+  document.getElementById('upload-submit-btn').disabled = true;
+  document.getElementById('upload-progress').style.display = '';
+  document.getElementById('upload-result').style.display = 'none';
+  document.getElementById('upload-error').style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('file',        fileInput.files[0]);
+  fd.append('title',       document.getElementById('upload-title').value.trim());
+  fd.append('description', document.getElementById('upload-description').value.trim());
+  fd.append('owner',       document.getElementById('upload-owner').value.trim());
+  fd.append('folder',      document.getElementById('upload-folder').value.trim());
+  fd.append('tags',        document.getElementById('upload-tags').value.trim());
+  fd.append('uploaded_by', document.getElementById('signed-by')?.value || '');
+
+  try {
+    const res  = await fetch('/api/reports/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+
+    document.getElementById('upload-progress').style.display = 'none';
+    const el = document.getElementById('upload-result');
+    el.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>
+      Uploaded <strong>${data.path}</strong> — ${data.row_count.toLocaleString()} rows,
+      ${(data.file_size/1024).toFixed(1)} KB, ${data.columns.length} columns.`;
+    el.style.display = '';
+    log.success(`File uploaded: ${data.path} (${data.row_count} rows)`);
+
+    // Refresh tree and auto-select the new report
+    await loadReports();
+    setTimeout(() => {
+      _uploadModal.hide();
+      selectReport({ path: data.path, meta: { title: document.getElementById('upload-title').value || data.path } });
+    }, 800);
+  } catch (e) {
+    document.getElementById('upload-progress').style.display = 'none';
+    const el = document.getElementById('upload-error');
+    el.textContent = 'Upload failed: ' + e.message;
+    el.style.display = '';
+    document.getElementById('upload-submit-btn').disabled = false;
+    log.error('Upload failed: ' + e.message);
+  }
+}
 
 function showCreateReportModal() {
   if (!_createReportModal) _createReportModal = new bootstrap.Modal(document.getElementById('createReportModal'));
@@ -4016,6 +4123,63 @@ document.getElementById('adminRenameInput')?.addEventListener('keydown', e => {
 
 <!-- ── Admin: right-click context menu ─────────────────────────────── -->
 <div id="tree-ctx-menu" style="display:none;"></div>
+
+<!-- ── Upload CSV / Excel modal ────────────────────────────────────── -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content" style="background:var(--bg-panel);color:var(--text-primary);border:1px solid var(--border);">
+      <div class="modal-header" style="border-bottom:1px solid var(--border);">
+        <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Upload CSV / Excel Report</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">File <span class="text-danger">*</span></label>
+          <input type="file" class="form-control form-control-sm" id="upload-file" accept=".csv,.xlsx,.xls"
+                 onchange="uploadFileSelected(this)">
+          <div id="upload-file-info" class="mt-1" style="font-size:.78rem;color:var(--text-muted);"></div>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small fw-semibold">Title</label>
+            <input type="text" class="form-control form-control-sm" id="upload-title" placeholder="Auto-filled from filename">
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-semibold">Owner</label>
+            <input type="text" class="form-control form-control-sm" id="upload-owner" placeholder="Team or person name">
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Description</label>
+          <textarea class="form-control form-control-sm" id="upload-description" rows="2" placeholder="What does this data contain?"></textarea>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small fw-semibold">Save to Folder</label>
+            <input type="text" class="form-control form-control-sm" id="upload-folder" placeholder="e.g. sales/uploads (leave blank for root)">
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-semibold">Tags <span class="text-muted">(comma-separated)</span></label>
+            <input type="text" class="form-control form-control-sm" id="upload-tags" placeholder="e.g. finance, Q1">
+          </div>
+        </div>
+        <div id="upload-progress" style="display:none;" class="mt-2">
+          <div class="d-flex align-items-center gap-2 text-muted small">
+            <div class="spinner-border spinner-border-sm"></div> Uploading…
+          </div>
+        </div>
+        <div id="upload-result" style="display:none;" class="mt-2 alert alert-success py-2 small mb-0"></div>
+        <div id="upload-error"  style="display:none;" class="mt-2 alert alert-danger  py-2 small mb-0"></div>
+      </div>
+      <div class="modal-footer" style="border-top:1px solid var(--border);">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-rjk btn-sm" id="upload-submit-btn" onclick="submitUpload()" disabled>
+          <i class="bi bi-upload me-1"></i>Upload
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ── Admin: rename modal ─────────────────────────────────────────── -->
 <div class="modal fade" id="adminRenameModal" tabindex="-1">

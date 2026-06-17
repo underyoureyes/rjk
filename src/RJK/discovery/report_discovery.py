@@ -2,20 +2,41 @@ from pathlib import Path
 
 from RJK.parser.sql_metadata_parser import parse_sql_metadata
 
+_REPORT_GLOBS = ["**/*.sql", "**/*.csv", "**/*.xlsx", "**/*.xls"]
+
 
 def discover_reports(reports_root: Path) -> list[dict]:
     """Walk the reports directory and return a flat list of reports with metadata."""
+    seen: set[Path] = set()
+    candidates: list[Path] = []
+    for pattern in _REPORT_GLOBS:
+        for f in reports_root.glob(pattern):
+            if f not in seen:
+                seen.add(f)
+                candidates.append(f)
+
     reports = []
-    for sql_file in sorted(reports_root.rglob("*.sql")):
-        rel_path = sql_file.relative_to(reports_root).as_posix()
-        meta = parse_sql_metadata(sql_file)
-        reports.append({
-            "path": rel_path,
-            "title": meta.get("title", sql_file.stem),
+    for report_file in sorted(candidates):
+        # Skip sidecar metadata files and anything in _trash
+        if report_file.name.endswith(".meta.yaml"):
+            continue
+        if "_trash" in report_file.parts:
+            continue
+        rel_path = report_file.relative_to(reports_root).as_posix()
+        meta = parse_sql_metadata(report_file)
+        entry = {
+            "path":        rel_path,
+            "title":       meta.get("title", report_file.stem),
             "description": meta.get("description", ""),
-            "owner": meta.get("owner", ""),
-            "tags": meta.get("tags", []),
-        })
+            "owner":       meta.get("owner", ""),
+            "tags":        meta.get("tags", []),
+            "source":      meta.get("source", "sql"),
+        }
+        # Carry upload-specific fields so the tree popover can display them
+        for field in ("row_count", "file_size", "uploaded_by", "upload_date", "original_filename"):
+            if field in meta:
+                entry[field] = meta[field]
+        reports.append(entry)
     return reports
 
 

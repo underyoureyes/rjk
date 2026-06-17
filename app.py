@@ -10,7 +10,8 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 import logging
 
-from fastapi import FastAPI, HTTPException, Request
+from datetime import datetime, timezone
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from RJK.audit.audit_service import AuditService
@@ -68,6 +69,74 @@ def get_report_meta(path: str):
         return meta_clean
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.post("/api/reports/upload")
+async def upload_report(
+    file: UploadFile = File(...),
+    folder: str = Form(""),
+    title: str = Form(""),
+    description: str = Form(""),
+    owner: str = Form(""),
+    tags: str = Form(""),
+    uploaded_by: str = Form(""),
+):
+    import pandas as pd
+
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in {".csv", ".xlsx", ".xls"}:
+        raise HTTPException(status_code=400, detail="Only CSV and Excel (.xlsx/.xls) files are supported")
+
+    # Resolve and validate target directory
+    reports_root = Path(config.reports_root).resolve()
+    if folder:
+        target_dir = (reports_root / folder).resolve()
+        if not str(target_dir).startswith(str(reports_root)):
+            raise HTTPException(status_code=400, detail="Invalid folder path")
+    else:
+        target_dir = reports_root
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    # Sanitise filename and write data file
+    safe_stem = re.sub(r"[^\w\-]", "_", Path(file.filename).stem)
+    data_path  = target_dir / (safe_stem + suffix)
+    content    = await file.read()
+    data_path.write_bytes(content)
+
+    # Parse to capture row count and columns
+    try:
+        if suffix == ".csv":
+            df = pd.read_csv(data_path, nrows=0)   # headers only for speed
+            full_df = pd.read_csv(data_path)
+        else:
+            df = pd.read_excel(data_path, nrows=0)
+            full_df = pd.read_excel(data_path)
+        row_count = len(full_df)
+        columns   = list(full_df.columns)
+    except Exception as exc:
+        data_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=f"Could not parse file: {exc}")
+
+    # Write sidecar metadata
+    meta = {
+        "title":             title or Path(file.filename).stem,
+        "description":       description,
+        "owner":             owner,
+        "tags":              [t.strip() for t in tags.split(",") if t.strip()],
+        "source":            "upload",
+        "original_filename": file.filename,
+        "file_size":         len(content),
+        "row_count":         row_count,
+        "columns":           columns,
+        "uploaded_by":       uploaded_by,
+        "upload_date":       datetime.now(timezone.utc).isoformat(),
+    }
+    sidecar = data_path.parent / (data_path.name + ".meta.yaml")
+    sidecar.write_text(yaml.dump(meta, default_flow_style=False, allow_unicode=True), encoding="utf-8")
+
+    rel = data_path.relative_to(reports_root).as_posix()
+    logger.info("Uploaded report: %s (%d rows, %d bytes)", rel, row_count, len(content))
+    return {"path": rel, "row_count": row_count, "columns": columns, "file_size": len(content)}
 
 
 @app.post("/api/reports/run")
