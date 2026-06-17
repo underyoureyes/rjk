@@ -25,7 +25,11 @@ def build_report_tree(reports: list[dict]) -> dict:
     for report in reports:
         parts = report["path"].split("/")
         node = tree
+        accumulated = []
         for part in parts[:-1]:
-            node = node.setdefault(part, {"_type": "dir", "_children": {}})["_children"]
+            accumulated.append(part)
+            dir_node = node.setdefault(part, {"_type": "dir", "_path": "/".join(accumulated), "_children": {}})
+            dir_node["_path"] = "/".join(accumulated)
+            node = dir_node["_children"]
         node[parts[-1]] = {"_type": "report", **report}
     return tree

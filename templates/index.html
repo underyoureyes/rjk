@@ -119,6 +119,27 @@
     transition: background .15s;
   }
   #sidebar-toggle:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .resize-handle {
+    flex-shrink: 0; width: 5px; cursor: col-resize;
+    background: transparent;
+    transition: background .15s;
+    z-index: 12;
+    position: relative;
+  }
+  .resize-handle:hover, .resize-handle.dragging { background: var(--rjk-blue); }
+  #tree-ctx-menu {
+    position: fixed; z-index: 9999; min-width: 160px;
+    background: var(--bg-panel); border: 1px solid var(--border);
+    border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.18);
+    padding: 4px 0; font-size: .83rem;
+  }
+  .ctx-item {
+    padding: 6px 16px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    color: var(--text-primary);
+  }
+  .ctx-item:hover { background: var(--bg-hover); }
+  .ctx-item.danger { color: #dc3545; }
+  .ctx-sep { border-top: 1px solid var(--border); margin: 3px 0; }
   .sidebar-header {
     font-size: .72rem; font-weight: 700; letter-spacing: .1em;
     color: var(--text-muted); text-transform: uppercase;
@@ -296,6 +317,9 @@
     </button>
   </div>
 
+  <!-- Sidebar resize handle -->
+  <div id="sidebar-resize" class="resize-handle" title="Drag to resize sidebar"></div>
+
   <!-- Content -->
   <div class="flex-grow-1 overflow-auto p-3">
 
@@ -366,24 +390,21 @@
                 <input type="text" class="form-control" id="grid-search" placeholder="Search…"
                        oninput="applyGridSearch(this.value)" disabled>
               </div>
-              <div class="d-flex gap-1 export-btn-group" role="group">
-                <button class="btn btn-sm btn-warning export-btn" id="btn-export-csv"
-                        onclick="exportCsv()" disabled title="Download CSV">
-                  <i class="bi bi-filetype-csv me-1"></i>CSV
+              <div class="dropdown">
+                <button class="btn btn-sm btn-rjk dropdown-toggle" id="btn-export-dropdown"
+                        type="button" data-bs-toggle="dropdown" aria-expanded="false" disabled>
+                  <i class="bi bi-download me-1"></i>Export
                 </button>
-                <button class="btn btn-sm btn-success export-btn" id="btn-export-xlsx"
-                        onclick="exportExcel()" disabled title="Download Excel">
-                  <i class="bi bi-file-earmark-excel me-1"></i>Excel
-                </button>
-                <button class="btn btn-sm btn-danger export-btn" id="btn-export-pdf"
-                        onclick="exportPdf()" disabled title="Download PDF (landscape A4)">
-                  <i class="bi bi-file-earmark-pdf me-1"></i>PDF
-                </button>
-                <button class="btn btn-sm export-btn" id="btn-export-ppt"
-                        onclick="exportPpt()" disabled title="Download PowerPoint"
-                        style="background:#c05621;color:#fff;border:none;">
-                  <i class="bi bi-file-earmark-slides me-1"></i>PPT
-                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><a class="dropdown-item" href="#" onclick="exportCsv();return false;">
+                    <i class="bi bi-filetype-csv me-2 text-warning"></i>CSV</a></li>
+                  <li><a class="dropdown-item" href="#" onclick="exportExcel();return false;">
+                    <i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel</a></li>
+                  <li><a class="dropdown-item" href="#" onclick="exportPdf();return false;">
+                    <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF</a></li>
+                  <li><a class="dropdown-item" href="#" onclick="exportPpt();return false;">
+                    <i class="bi bi-file-earmark-slides me-2" style="color:#c05621;"></i>PowerPoint</a></li>
+                </ul>
               </div>
               <div class="dropdown">
                 <button class="btn btn-sm btn-info dropdown-toggle" type="button" id="btn-cols"
@@ -508,12 +529,18 @@
                     <input type="text" class="form-control" id="aggs-search" placeholder="Search…"
                            oninput="applyAggsSearch(this.value)">
                   </div>
-                  <button class="btn btn-sm btn-warning" onclick="exportAggsCsv()">
-                    <i class="bi bi-filetype-csv me-1"></i>CSV
-                  </button>
-                  <button class="btn btn-sm btn-success" onclick="exportAggsExcel()">
-                    <i class="bi bi-file-earmark-excel me-1"></i>Excel
-                  </button>
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-rjk dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                      <i class="bi bi-download me-1"></i>Export
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li><a class="dropdown-item" href="#" onclick="exportAggsCsv();return false;">
+                        <i class="bi bi-filetype-csv me-2 text-warning"></i>CSV</a></li>
+                      <li><a class="dropdown-item" href="#" onclick="exportAggsExcel();return false;">
+                        <i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel</a></li>
+                    </ul>
+                  </div>
                   <div class="dropdown">
                     <button class="btn btn-sm btn-info dropdown-toggle" type="button"
                             data-bs-toggle="dropdown" data-bs-auto-close="outside">
@@ -612,26 +639,32 @@
                 <label class="form-check-label small" for="rpt-show-legend">Show Legend</label>
               </div>
 
-              <button class="btn btn-rjk btn-sm mt-auto" onclick="generateChart()">
-                <i class="bi bi-play-fill me-1"></i>Generate Chart
-              </button>
+              <div class="d-flex gap-2 mt-auto">
+                <button class="btn btn-rjk btn-sm flex-grow-1" onclick="generateChart()">
+                  <i class="bi bi-play-fill me-1"></i>Generate Chart
+                </button>
+                <div class="dropdown">
+                  <button id="rpt-export-dropdown" class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                          type="button" data-bs-toggle="dropdown" aria-expanded="false" disabled>
+                    <i class="bi bi-download me-1"></i>Export
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#" onclick="exportChartPng();return false;">
+                      <i class="bi bi-file-image me-2 text-secondary"></i>PNG</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportChartPdf();return false;">
+                      <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportChartPpt();return false;">
+                      <i class="bi bi-file-earmark-slides me-2" style="color:#c05621;"></i>PowerPoint</a></li>
+                  </ul>
+                </div>
+              </div>
             </div>
+
+            <!-- Reporting controls resize handle -->
+            <div id="rpt-resize" class="resize-handle" title="Drag to resize panel"></div>
 
             <!-- ── Chart output ─────────────────────────────────────── -->
             <div style="flex:1;display:flex;flex-direction:column;gap:.5rem;">
-              <!-- chart export toolbar — only shown after chart generated -->
-              <div id="rpt-export-toolbar" style="display:none;" class="d-flex gap-2 align-items-center">
-                <span class="small fw-semibold" style="color:var(--text-muted);">Export chart:</span>
-                <button class="btn btn-sm btn-danger" onclick="exportChartPdf()">
-                  <i class="bi bi-file-earmark-pdf me-1"></i>PDF
-                </button>
-                <button class="btn btn-sm" style="background:#c05621;color:#fff;border:none;" onclick="exportChartPpt()">
-                  <i class="bi bi-file-earmark-slides me-1"></i>PPT
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="exportChartPng()">
-                  <i class="bi bi-file-image me-1"></i>PNG
-                </button>
-              </div>
               <div id="rpt-chart-panel" style="flex:1;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;align-items:center;justify-content:center;min-height:600px;">
                 <div id="rpt-placeholder" class="text-center" style="color:var(--text-muted);max-width:420px;">
                   <i class="bi bi-bar-chart-line" style="font-size:3rem;display:block;margin-bottom:.75rem;"></i>
@@ -657,6 +690,54 @@
             </div>
 
           </div>
+
+          <!-- ── Dataset data grid ─────────────────────────────────────── -->
+          <div id="rpt-data-section" style="display:none;margin-top:.75rem;">
+            <div class="grid-toolbar" style="border-radius:6px 6px 0 0;">
+              <span class="section-title mb-0"><i class="bi bi-table me-1"></i>Dataset Data</span>
+              <span id="rpt-data-row-count" class="row-count-badge ms-2" style="display:none;"></span>
+              <div class="ms-auto d-flex gap-2 align-items-center">
+                <div class="input-group input-group-sm" style="width:200px;">
+                  <span class="input-group-text px-2"><i class="bi bi-search"></i></span>
+                  <input type="text" class="form-control" id="rpt-data-search" placeholder="Search…"
+                         oninput="rptDataSearch(this.value)">
+                </div>
+                <div class="dropdown">
+                  <button class="btn btn-sm btn-rjk dropdown-toggle" type="button"
+                          data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-download me-1"></i>Export
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#" onclick="rptDataExportCsv();return false;">
+                      <i class="bi bi-filetype-csv me-2 text-warning"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="rptDataExportExcel();return false;">
+                      <i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel</a></li>
+                  </ul>
+                </div>
+                <div class="dropdown">
+                  <button class="btn btn-sm btn-info dropdown-toggle" type="button"
+                          data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                    <i class="bi bi-layout-three-columns me-1"></i>Columns
+                  </button>
+                  <div class="dropdown-menu p-2 dropdown-menu-end" style="min-width:230px;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                      <small class="fw-bold" style="color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase;">Columns</small>
+                      <div class="d-flex gap-2">
+                        <a href="#" class="small text-decoration-none" onclick="rptDataColChooserAll(true);return false;">All</a>
+                        <span style="color:var(--text-muted);">·</span>
+                        <a href="#" class="small text-decoration-none" onclick="rptDataColChooserAll(false);return false;">None</a>
+                      </div>
+                    </div>
+                    <div id="rpt-data-col-chooser" style="max-height:260px;overflow-y:auto;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="grid-outer" style="border-radius:0 0 6px 6px;">
+              <div id="rpt-data-grid" class="ag-theme-alpine grid-wrap"></div>
+            </div>
+          </div>
+
         </div>
 
       </div>
@@ -668,43 +749,10 @@
     <div id="tab-audit" style="display:none;">
       <div class="row g-3">
 
-        <!-- Runs grid -->
+        <!-- Sign-offs grid (primary) -->
         <div class="col-12">
           <div class="grid-toolbar" style="border-radius:6px 6px 0 0;">
-            <span class="section-title mb-0">Report Runs</span>
-            <span id="audit-runs-badge" class="row-count-badge ms-2" style="display:none;"></span>
-            <div class="ms-auto d-flex gap-2 align-items-center">
-              <div class="input-group input-group-sm" style="width:200px;">
-                <span class="input-group-text px-2"><i class="bi bi-search"></i></span>
-                <input type="text" class="form-control" id="audit-runs-search" placeholder="Search…"
-                       oninput="auditSearch('auditRunsApi','audit-runs-badge',this.value)">
-              </div>
-              <button class="btn btn-sm btn-warning" onclick="auditExportCsv('auditRunsApi','report_runs')">
-                <i class="bi bi-filetype-csv me-1"></i>CSV
-              </button>
-              <button class="btn btn-sm btn-success" onclick="auditExportExcel('auditRunsApi','report_runs')">
-                <i class="bi bi-file-earmark-excel me-1"></i>Excel
-              </button>
-              <div class="dropdown">
-                <button class="btn btn-sm btn-info dropdown-toggle" type="button"
-                        data-bs-toggle="dropdown" data-bs-auto-close="outside">
-                  <i class="bi bi-layout-three-columns me-1"></i>Columns
-                </button>
-                <div class="dropdown-menu p-2 dropdown-menu-end" style="min-width:220px;">
-                  <div id="audit-runs-col-list" style="max-height:260px;overflow-y:auto;"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="grid-outer" style="border-radius:0 0 6px 6px; border-top:none;">
-            <div id="audit-runs-grid" class="ag-theme-alpine audit-grid-wrap"></div>
-          </div>
-        </div>
-
-        <!-- Sign-offs grid -->
-        <div class="col-12 mt-3">
-          <div class="grid-toolbar" style="border-radius:6px 6px 0 0;">
-            <span class="section-title mb-0">Sign-offs</span>
+            <span class="section-title mb-0"><i class="bi bi-patch-check me-1"></i>Sign-offs &amp; Persisted Data</span>
             <span id="audit-signoffs-badge" class="row-count-badge ms-2" style="display:none;"></span>
             <div class="ms-auto d-flex gap-2 align-items-center">
               <div class="input-group input-group-sm" style="width:200px;">
@@ -712,12 +760,18 @@
                 <input type="text" class="form-control" id="audit-signoffs-search" placeholder="Search…"
                        oninput="auditSearch('auditSignoffsApi','audit-signoffs-badge',this.value)">
               </div>
-              <button class="btn btn-sm btn-warning" onclick="auditExportCsv('auditSignoffsApi','sign_offs')">
-                <i class="bi bi-filetype-csv me-1"></i>CSV
-              </button>
-              <button class="btn btn-sm btn-success" onclick="auditExportExcel('auditSignoffsApi','sign_offs')">
-                <i class="bi bi-file-earmark-excel me-1"></i>Excel
-              </button>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-rjk dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="bi bi-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><a class="dropdown-item" href="#" onclick="auditExportCsv('auditSignoffsApi','sign_offs');return false;">
+                    <i class="bi bi-filetype-csv me-2 text-warning"></i>CSV</a></li>
+                  <li><a class="dropdown-item" href="#" onclick="auditExportExcel('auditSignoffsApi','sign_offs');return false;">
+                    <i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel</a></li>
+                </ul>
+              </div>
               <div class="dropdown">
                 <button class="btn btn-sm btn-info dropdown-toggle" type="button"
                         data-bs-toggle="dropdown" data-bs-auto-close="outside">
@@ -731,6 +785,45 @@
           </div>
           <div class="grid-outer" style="border-radius:0 0 6px 6px; border-top:none;">
             <div id="audit-signoffs-grid" class="ag-theme-alpine audit-grid-wrap"></div>
+          </div>
+        </div>
+
+        <!-- Report Runs grid (secondary) -->
+        <div class="col-12 mt-3">
+          <div class="grid-toolbar" style="border-radius:6px 6px 0 0;">
+            <span class="section-title mb-0"><i class="bi bi-play-circle me-1"></i>Report Runs</span>
+            <span id="audit-runs-badge" class="row-count-badge ms-2" style="display:none;"></span>
+            <div class="ms-auto d-flex gap-2 align-items-center">
+              <div class="input-group input-group-sm" style="width:200px;">
+                <span class="input-group-text px-2"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="audit-runs-search" placeholder="Search…"
+                       oninput="auditSearch('auditRunsApi','audit-runs-badge',this.value)">
+              </div>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-rjk dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="bi bi-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><a class="dropdown-item" href="#" onclick="auditExportCsv('auditRunsApi','report_runs');return false;">
+                    <i class="bi bi-filetype-csv me-2 text-warning"></i>CSV</a></li>
+                  <li><a class="dropdown-item" href="#" onclick="auditExportExcel('auditRunsApi','report_runs');return false;">
+                    <i class="bi bi-file-earmark-excel me-2 text-success"></i>Excel</a></li>
+                </ul>
+              </div>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-info dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                  <i class="bi bi-layout-three-columns me-1"></i>Columns
+                </button>
+                <div class="dropdown-menu p-2 dropdown-menu-end" style="min-width:220px;">
+                  <div id="audit-runs-col-list" style="max-height:260px;overflow-y:auto;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="grid-outer" style="border-radius:0 0 6px 6px; border-top:none;">
+            <div id="audit-runs-grid" class="ag-theme-alpine audit-grid-wrap"></div>
           </div>
         </div>
 
@@ -1046,8 +1139,8 @@ let currentMeta     = null;   // full metadata from /api/reports/meta
 let lastRunResult   = null;   // { run_id, rows, row_count }
 let _lastMaxRows    = null;   // null = no limit applied; number = limit that was used
 function _setExportBtns(disabled) {
-  ['btn-export-csv','btn-export-xlsx','btn-export-pdf','btn-export-ppt']
-    .forEach(id => { const el = document.getElementById(id); if (el) el.disabled = disabled; });
+  const el = document.getElementById('btn-export-dropdown');
+  if (el) el.disabled = disabled;
 }
 let lastAggsResult  = null;   // { group_by, value_cols, row_count } — set after agg preview
 let reportGridApi   = null;
@@ -1150,6 +1243,38 @@ function _updateToggleIcon() {
   icon.className = _sidebarUserCollapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-left';
 }
 
+function _initResizeHandle(handleId, targetEl, minPx, maxPx) {
+  const handle = document.getElementById(handleId);
+  if (!handle || !targetEl) return;
+  let startX, startW;
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    startX = e.clientX;
+    startW = targetEl.getBoundingClientRect().width;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    const savedTransition = targetEl.style.transition;
+    targetEl.style.transition = 'none';
+    const onMove = ev => {
+      const w = Math.min(maxPx, Math.max(minPx, startW + (ev.clientX - startX)));
+      targetEl.style.width = w + 'px';
+      targetEl.style.minWidth = w + 'px';
+      targetEl.style.maxWidth = w + 'px';
+    };
+    const onUp = () => {
+      handle.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      targetEl.style.transition = savedTransition;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
 document.querySelectorAll('[data-tab]').forEach(a => {
   a.addEventListener('click', e => { e.preventDefault(); switchTab(a.dataset.tab); });
 });
@@ -1202,7 +1327,10 @@ function renderTree(node, container, depth) {
       const label = val.title || key.replace('.sql','');
       el.innerHTML = `<i class="bi bi-file-earmark-text text-muted flex-shrink-0"></i><span class="tree-report-label" title="${label}">${label}</span>`;
       el.dataset.path = val.path;
+      el.dataset.fstype = 'report';
+      el.dataset.label = label;
       el.addEventListener('click', () => selectReport(val));
+      el.addEventListener('contextmenu', e => _treeCtxMenu(e, 'report', val.path, label));
 
       // Popover with description + tags
       const tags = (val.tags || []).map(t =>
@@ -1222,6 +1350,9 @@ function renderTree(node, container, depth) {
       folder.className = 'tree-folder';
       folder.style.paddingLeft = (12 + depth * 12) + 'px';
       folder.innerHTML = `<i class="bi bi-chevron-right"></i><i class="bi bi-folder2 text-warning"></i><span>${key}</span>`;
+      folder.dataset.fstype = 'folder';
+      folder.dataset.label = key;
+      folder.dataset.folderPath = val._path || '';
 
       const children = document.createElement('div');
       children.className = 'tree-children';
@@ -1231,6 +1362,7 @@ function renderTree(node, container, depth) {
         folder.classList.toggle('open');
         children.classList.toggle('open');
       });
+      folder.addEventListener('contextmenu', e => _treeCtxMenu(e, 'folder', val._path || '', key));
 
       container.appendChild(folder);
       container.appendChild(children);
@@ -1251,6 +1383,19 @@ function renderTree(node, container, depth) {
 // ============================================================
 async function selectReport(report) {
   currentReport = report;
+
+  // Reset Reporting tab — axis dropdowns belong to the previously-selected dataset, not this report
+  _rptSelectedName = null;
+  document.getElementById('rpt-selected-label').textContent = '';
+  document.getElementById('rpt-export-dropdown').disabled = true;
+  _lastChartFig = null;
+  ['rpt-x','rpt-y','rpt-color'].forEach(id => { document.getElementById(id).innerHTML = ''; });
+  const rptChart = document.getElementById('rpt-chart');
+  if (rptChart && window.Plotly) { try { Plotly.purge(rptChart); } catch {} }
+  document.getElementById('rpt-placeholder').style.display = '';
+  rptChart.style.display = 'none';
+  document.getElementById('rpt-data-section').style.display = 'none';
+  filterRptDatasets();
 
   // Highlight in sidebar
   document.querySelectorAll('.tree-report').forEach(el => el.classList.remove('active'));
@@ -2254,10 +2399,10 @@ async function exportPdf() {
   const params   = lastRunResult._params
     ? Object.entries(lastRunResult._params).map(([k, v]) => `${k}=${v}`).join('  |  ')
     : '';
-  const btn = document.getElementById('btn-export-pdf');
+  const btn = document.getElementById('btn-export-dropdown');
   const origHtml = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating…';
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating PDF…';
   log.info(`Generating PDF (${rows.length.toLocaleString()} rows)…`);
   try {
     const res = await fetch('/api/reports/export/pdf', {
@@ -2290,10 +2435,10 @@ async function exportPpt() {
   const params   = lastRunResult._params
     ? Object.entries(lastRunResult._params).map(([k, v]) => `${k}=${v}`).join('  |  ')
     : '';
-  const btn = document.getElementById('btn-export-ppt');
+  const btn = document.getElementById('btn-export-dropdown');
   const origHtml = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating…';
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating PPT…';
   log.info(`Generating PPT (${rows.length.toLocaleString()} rows)…`);
   try {
     const res = await fetch('/api/reports/export/ppt', {
@@ -2837,24 +2982,29 @@ async function selectRptDataset(name) {
   filterRptDatasets();
 
   if (name === _QUICK_NAME) {
-    // Use live raw report columns
     if (!lastRunResult?.rows?.length) { log.warn('No raw data loaded — run a report first'); return; }
     const cols = infer_columns_js(lastRunResult.rows);
     _fillRptSelectors(cols);
     document.getElementById('rpt-selected-label').textContent =
       (currentReport?.meta?.title || 'Raw data') + ' (current run)';
     document.getElementById('rpt-title').value = currentReport?.meta?.title || '';
+    renderRptDataGrid(lastRunResult.rows);
     return;
   }
 
   document.getElementById('rpt-selected-label').textContent = name;
   try {
-    const { columns } = await fetch(`/api/aggs/persisted/${encodeURIComponent(name)}`).then(r => r.json());
+    const enc = encodeURIComponent(name);
+    const [{ columns }, { rows }] = await Promise.all([
+      fetch(`/api/aggs/persisted/${enc}`).then(r => r.json()),
+      fetch(`/api/aggs/persisted/${enc}/rows`).then(r => r.json()),
+    ]);
     _fillRptSelectors(columns);
     document.getElementById('rpt-title').value =
       name.replace(/_\d{8,}.*$/, '').replace(/_/g, ' ').trim();
+    renderRptDataGrid(rows);
   } catch (e) {
-    log.error('Failed to load dataset columns: ' + e.message);
+    log.error('Failed to load dataset: ' + e.message);
   }
 }
 
@@ -2900,7 +3050,7 @@ async function generateChart() {
   elPlaceholder.style.display = 'none';
   elChart.style.display       = 'none';
   elGenerating.style.display  = '';
-  document.getElementById('rpt-export-toolbar').style.display = 'none';
+  document.getElementById('rpt-export-dropdown').disabled = true;
 
   log.info(`Generating ${_rptChartType} chart for "${dataset}"`);
   try {
@@ -2940,7 +3090,7 @@ async function generateChart() {
     _lastChartFig = fig;
     elGenerating.style.display = 'none';
     elChart.style.display = '';
-    document.getElementById('rpt-export-toolbar').style.display = '';
+    document.getElementById('rpt-export-dropdown').disabled = false;
     fig.layout = fig.layout || {};
     fig.layout.height = 540;
     fig.layout.margin = { ...(fig.layout.margin || {}), t: 50, r: 30, b: 60, l: 60 };
@@ -2962,12 +3112,31 @@ async function generateChart() {
 }
 
 // Chart exports
+function _lockExportBtns() {
+  const btn = document.getElementById('rpt-export-dropdown');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.dataset._origHtml = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Exporting…';
+}
+function _unlockExportBtns() {
+  const btn = document.getElementById('rpt-export-dropdown');
+  if (!btn) return;
+  btn.disabled = false;
+  if (btn.dataset._origHtml) btn.innerHTML = btn.dataset._origHtml;
+}
+
 async function exportChartPng() {
   if (!_lastChartFig) return;
-  await _ensurePlotly();
-  const el = document.getElementById('rpt-chart');
-  const name = (document.getElementById('rpt-title').value || 'chart').replace(/\s+/g,'_');
-  Plotly.downloadImage(el, { format: 'png', filename: name, width: 1400, height: 700 });
+  _lockExportBtns();
+  try {
+    await _ensurePlotly();
+    const el = document.getElementById('rpt-chart');
+    const name = (document.getElementById('rpt-title').value || 'chart').replace(/\s+/g,'_');
+    await Plotly.downloadImage(el, { format: 'png', filename: name, width: 1400, height: 700 });
+    log.success('Chart PNG downloaded');
+  } catch (e) { log.error('Chart PNG failed: ' + e.message); }
+  finally { _unlockExportBtns(); }
 }
 
 async function exportChartPdf() {
@@ -2975,6 +3144,7 @@ async function exportChartPdf() {
   const title = document.getElementById('rpt-title').value || 'Chart';
   const name  = title.replace(/\s+/g,'_');
   log.info('Exporting chart PDF…');
+  _lockExportBtns();
   try {
     const res = await fetch('/api/reporting/chart-export/pdf', {
       method: 'POST',
@@ -2985,6 +3155,7 @@ async function exportChartPdf() {
     _triggerDownload(await res.blob(), name + '.pdf');
     log.success('Chart PDF downloaded');
   } catch (e) { log.error('Chart PDF failed: ' + e.message); alert(e.message); }
+  finally { _unlockExportBtns(); }
 }
 
 async function exportChartPpt() {
@@ -2992,6 +3163,7 @@ async function exportChartPpt() {
   const title = document.getElementById('rpt-title').value || 'Chart';
   const name  = title.replace(/\s+/g,'_');
   log.info('Exporting chart PPT…');
+  _lockExportBtns();
   try {
     const res = await fetch('/api/reporting/chart-export/ppt', {
       method: 'POST',
@@ -3002,6 +3174,7 @@ async function exportChartPpt() {
     _triggerDownload(await res.blob(), name + '.pptx');
     log.success('Chart PPT downloaded');
   } catch (e) { log.error('Chart PPT failed: ' + e.message); alert(e.message); }
+  finally { _unlockExportBtns(); }
 }
 
 // Lazy-load Plotly.js only when the Reporting tab is first used
@@ -3024,28 +3197,45 @@ async function loadAudit() {
   try {
     const res = await fetch('/api/audit');
     const data = await res.json();
+    // Sign-offs first (primary view), with persist details joined in
+    renderAuditGrid('audit-signoffs-grid', data.signoffs, [
+      { field: 'id',              headerName: 'Sign-off ID',  width: 100 },
+      { field: 'run_id',          headerName: 'Run ID',       width: 85 },
+      { field: 'report_path',     headerName: 'Report',       flex: 2 },
+      { field: 'signed_off_by',   headerName: 'Signed Off By', width: 140 },
+      { field: 'signed_off_at',   headerName: 'Signed Off At', width: 175 },
+      { field: 'notes',           headerName: 'Notes',        flex: 1 },
+      { field: 'persist_name',    headerName: 'Dataset Name', flex: 2 },
+      { field: 'persist_format',  headerName: 'Type',         width: 80,
+        cellStyle: p => p.value ? { fontWeight: 600, color: 'var(--rjk-blue)' } : {} },
+      { field: 'persist_location', headerName: 'Location',    flex: 3,
+        tooltipField: 'persist_location' },
+      { field: 'persist_size_bytes', headerName: 'Size',      width: 95,
+        valueFormatter: p => p.value != null ? _fmtBytes(p.value) : '—' },
+      { field: 'persist_row_count', headerName: 'Rows',       width: 85,
+        valueFormatter: p => p.value != null ? p.value.toLocaleString() : '—' },
+      { field: 'persist_source_rows', headerName: 'Source Rows', width: 110, hide: true,
+        valueFormatter: p => p.value != null ? p.value.toLocaleString() : '—' },
+      { field: 'persist_group_by',  headerName: 'Group By',  flex: 1, hide: true },
+      { field: 'persist_value_cols', headerName: 'Value Cols', flex: 1, hide: true },
+      { field: 'persisted_by',    headerName: 'Persisted By', width: 130 },
+      { field: 'persisted_at',    headerName: 'Persisted At', width: 175 },
+      { field: 'params',          headerName: 'Params',       flex: 1, hide: true },
+    ], 'auditSignoffsApi');
+
+    // Report Runs (secondary)
     renderAuditGrid('audit-runs-grid', data.runs, [
-      { field: 'id', headerName: 'Run ID', width: 90 },
-      { field: 'report_path', headerName: 'Report', flex: 2 },
-      { field: 'run_by', headerName: 'Run By', width: 130 },
-      { field: 'ran_at', headerName: 'Ran At', width: 190 },
-      { field: 'row_count', headerName: 'Rows', width: 100 },
-      { field: 'status', headerName: 'Status', width: 110, cellStyle: p =>
+      { field: 'id',          headerName: 'Run ID',  width: 90 },
+      { field: 'report_path', headerName: 'Report',  flex: 2 },
+      { field: 'run_by',      headerName: 'Run By',  width: 130 },
+      { field: 'ran_at',      headerName: 'Ran At',  width: 190 },
+      { field: 'row_count',   headerName: 'Rows',    width: 100 },
+      { field: 'status',      headerName: 'Status',  width: 110, cellStyle: p =>
           p.value === 'success' ? { color: '#198754', fontWeight: 700 }
           : p.value === 'error' ? { color: '#dc3545', fontWeight: 700 } : {} },
-      { field: 'params', headerName: 'Params', flex: 1 },
-      { field: 'error', headerName: 'Error', flex: 1 },
+      { field: 'params',      headerName: 'Params',  flex: 1 },
+      { field: 'error',       headerName: 'Error',   flex: 1 },
     ], 'auditRunsApi');
-
-    renderAuditGrid('audit-signoffs-grid', data.signoffs, [
-      { field: 'id', headerName: 'Sign-off ID', width: 110 },
-      { field: 'run_id', headerName: 'Run ID', width: 90 },
-      { field: 'report_path', headerName: 'Report', flex: 2 },
-      { field: 'signed_off_by', headerName: 'Signed Off By', width: 150 },
-      { field: 'signed_off_at', headerName: 'Signed Off At', width: 190 },
-      { field: 'params', headerName: 'Params', flex: 1 },
-      { field: 'notes', headerName: 'Notes', flex: 1 },
-    ], 'auditSignoffsApi');
 
     log.success(`Audit: ${data.runs.length} run(s), ${data.signoffs.length} sign-off(s)`);
   } catch (e) {
@@ -3144,6 +3334,7 @@ function _loadColLayout(reportPath) {
 // Aggs tab
 // ============================================================
 let aggsGridApi = null;
+let rptDataGridApi = null;
 
 function refreshAggsState() {
   if (!lastRunResult || !lastRunResult.rows || !lastRunResult.rows.length) {
@@ -3366,6 +3557,90 @@ function exportAggsExcel() {
 }
 
 // ============================================================
+// Reporting tab — dataset data grid
+
+function renderRptDataGrid(rows) {
+  const section = document.getElementById('rpt-data-section');
+  if (!rows || !rows.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  const colDefs = Object.keys(rows[0]).map(k => ({ field: k, headerName: k, sortable: true, resizable: true, filter: true }));
+  const container = document.getElementById('rpt-data-grid');
+  if (rptDataGridApi) {
+    rptDataGridApi.setGridOption('columnDefs', colDefs);
+    rptDataGridApi.setGridOption('rowData', rows);
+  } else {
+    rptDataGridApi = agGrid.createGrid(container, {
+      columnDefs: colDefs,
+      rowData: rows,
+      defaultColDef: { sortable: true, resizable: true, filter: true },
+      pagination: true,
+      paginationPageSize: 100,
+      suppressMovableColumns: false,
+    });
+  }
+  const badge = document.getElementById('rpt-data-row-count');
+  badge.textContent = rows.length.toLocaleString() + ' rows';
+  badge.style.display = '';
+  _buildRptDataColChooser(colDefs);
+  document.getElementById('rpt-data-search').value = '';
+}
+
+function _buildRptDataColChooser(colDefs) {
+  const el = document.getElementById('rpt-data-col-chooser');
+  el.innerHTML = colDefs.map(c =>
+    `<div class="form-check form-check-sm">
+      <input class="form-check-input" type="checkbox" checked
+             id="rdcc-${c.field}" onchange="rptDataColToggle('${c.field}',this.checked)">
+      <label class="form-check-label small" for="rdcc-${c.field}">${c.headerName}</label>
+    </div>`
+  ).join('');
+}
+
+function rptDataColToggle(colId, visible) {
+  if (!rptDataGridApi) return;
+  rptDataGridApi.applyColumnState({ state: [{ colId, hide: !visible }] });
+}
+
+function rptDataColChooserAll(visible) {
+  if (!rptDataGridApi) return;
+  document.querySelectorAll('#rpt-data-col-chooser input[type=checkbox]').forEach(cb => {
+    cb.checked = visible;
+    rptDataGridApi.applyColumnState({ state: [{ colId: cb.id.replace('rdcc-', ''), hide: !visible }] });
+  });
+}
+
+function rptDataSearch(v) {
+  if (rptDataGridApi) rptDataGridApi.setGridOption('quickFilterText', v);
+}
+
+function rptDataExportCsv() {
+  if (!rptDataGridApi) return;
+  const rows = _collectGridRows(rptDataGridApi);
+  if (!rows.length) { log.warn('No dataset rows to export'); return; }
+  const name = (_rptSelectedName || 'dataset').replace(/[^a-z0-9_-]/gi, '_');
+  _triggerDownload(new Blob([_buildCsv(rows)], { type: 'text/csv;charset=utf-8;' }), name + '.csv');
+  log.success(`Dataset CSV downloaded (${rows.length.toLocaleString()} rows)`);
+}
+
+function rptDataExportExcel() {
+  if (!rptDataGridApi) return;
+  const rows = _collectGridRows(rptDataGridApi);
+  if (!rows.length) { log.warn('No dataset rows to export'); return; }
+  const stem = (_rptSelectedName || 'dataset').replace(/[^a-z0-9_-]/gi, '_').slice(0, 31);
+  log.info(`Exporting dataset Excel (${rows.length.toLocaleString()} rows)…`);
+  try {
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, stem);
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    _triggerDownload(new Blob([buf], { type: 'application/octet-stream' }), stem + '.xlsx');
+    log.success('Dataset Excel downloaded');
+  } catch (e) {
+    log.error('Dataset Excel export failed: ' + e.message);
+  }
+}
+
+// ============================================================
 // Theme
 // ============================================================
 const THEMES = {
@@ -3402,12 +3677,14 @@ document.querySelectorAll('.theme-item').forEach(el => {
 // ============================================================
 let _currentUser = '';
 let _currentUserSource = '';   // 'header' | 'os' | ''
+let _isAdmin = false;
 
 async function _loadCurrentUser() {
   try {
     const s = await fetch('/api/admin/status').then(r => r.json());
     _currentUser       = s.current_user || '';
     _currentUserSource = s.user_source  || '';
+    _isAdmin           = !!s.is_admin;
   } catch { /* non-fatal — leave empty, user types manually */ }
   _applyUserFields();
 }
@@ -3438,6 +3715,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   initEmptyReportGrid();
   initEmptyAuditGrids();
   _updateRawSignoffBar();
+  _initResizeHandle('sidebar-resize', document.getElementById('sidebar'), 140, 520);
+  _initResizeHandle('rpt-resize', document.querySelector('#tab-reporting .d-flex.gap-3 > div:first-child'), 180, 480);
   await Promise.all([loadReports(), _loadCurrentUser()]);
 });
 
@@ -3466,6 +3745,145 @@ function initEmptyAuditGrids() {
     overlayNoRowsTemplate: '<span class="text-muted">No sign-offs yet</span>',
   });
 }
+
+// ============================================================
+// Admin — filesystem context menu (rename / trash)
+// ============================================================
+let _ctxTarget = null;  // { type: 'report'|'folder', path, label }
+
+function _treeCtxMenu(e, type, path, label) {
+  if (!_isAdmin) return;
+  e.preventDefault();
+  e.stopPropagation();
+  _ctxTarget = { type, path, label };
+
+  const menu = document.getElementById('tree-ctx-menu');
+  menu.innerHTML = `
+    <div class="ctx-item" onclick="_ctxRename()">
+      <i class="bi bi-pencil"></i> Rename
+    </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item danger" onclick="_ctxDelete()">
+      <i class="bi bi-trash"></i> Move to Trash
+    </div>`;
+
+  // Position at cursor, flip if near edge
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let x = e.clientX, y = e.clientY;
+  menu.style.display = 'block';
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  if (x + mw > vw - 8) x = vw - mw - 8;
+  if (y + mh > vh - 8) y = vh - mh - 8;
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+}
+
+document.addEventListener('click', () => {
+  const menu = document.getElementById('tree-ctx-menu');
+  if (menu) menu.style.display = 'none';
+});
+document.addEventListener('contextmenu', e => {
+  if (!e.target.closest('.tree-report, .tree-folder')) {
+    const menu = document.getElementById('tree-ctx-menu');
+    if (menu) menu.style.display = 'none';
+  }
+});
+
+// --- Rename ---
+let _renameModal = null;
+function _ctxRename() {
+  document.getElementById('tree-ctx-menu').style.display = 'none';
+  if (!_ctxTarget) return;
+  const isReport = _ctxTarget.type === 'report';
+  // Strip .sql extension for display
+  const displayName = isReport
+    ? _ctxTarget.label
+    : _ctxTarget.label;
+  document.getElementById('adminRenameTitle').textContent = isReport ? 'Rename Report' : 'Rename Folder';
+  document.getElementById('adminRenameLabel').textContent = isReport ? 'New name (without .sql)' : 'New folder name';
+  const inp = document.getElementById('adminRenameInput');
+  inp.value = displayName;
+  document.getElementById('adminRenameError').style.display = 'none';
+  if (!_renameModal) _renameModal = new bootstrap.Modal(document.getElementById('adminRenameModal'));
+  _renameModal.show();
+  setTimeout(() => { inp.select(); }, 300);
+}
+
+async function adminRenameCommit() {
+  const inp      = document.getElementById('adminRenameInput');
+  const errEl    = document.getElementById('adminRenameError');
+  const newName  = inp.value.trim();
+  if (!newName) { errEl.textContent = 'Name cannot be empty'; errEl.style.display = ''; return; }
+  if (/[\/\\]/.test(newName) || newName.startsWith('.')) {
+    errEl.textContent = 'Name must not contain / \\ or start with .';
+    errEl.style.display = ''; return;
+  }
+  errEl.style.display = 'none';
+  document.getElementById('adminRenameOk').disabled = true;
+  try {
+    const res = await fetch('/api/admin/fs/rename', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: _ctxTarget.path, new_name: newName }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    _renameModal.hide();
+    log.success(`Renamed to "${newName}"`);
+    await loadReports();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = '';
+  } finally {
+    document.getElementById('adminRenameOk').disabled = false;
+  }
+}
+
+// --- Delete (trash) ---
+let _deleteModal = null;
+function _ctxDelete() {
+  document.getElementById('tree-ctx-menu').style.display = 'none';
+  if (!_ctxTarget) return;
+  document.getElementById('adminDeleteName').textContent = _ctxTarget.label;
+  if (!_deleteModal) _deleteModal = new bootstrap.Modal(document.getElementById('adminDeleteModal'));
+  _deleteModal.show();
+}
+
+async function adminDeleteCommit() {
+  const okBtn = document.getElementById('adminDeleteOk');
+  okBtn.disabled = true;
+  try {
+    const endpoint = _ctxTarget.type === 'report'
+      ? '/api/admin/fs/report'
+      : '/api/admin/fs/folder';
+    const res = await fetch(endpoint, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: _ctxTarget.path }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    _deleteModal.hide();
+    log.success(`Moved "${_ctxTarget.label}" to _trash/`);
+    // If the deleted report was selected, clear the panel
+    if (_ctxTarget.type === 'report' && currentReport?.path === _ctxTarget.path) {
+      currentReport = null;
+      document.getElementById('report-panel').style.display = 'none';
+      document.getElementById('no-report-selected').style.display = '';
+    }
+    await loadReports();
+  } catch (e) {
+    log.error('Trash failed: ' + e.message);
+    alert(e.message);
+  } finally {
+    okBtn.disabled = false;
+  }
+}
+
+// Enter key submits rename modal
+document.getElementById('adminRenameInput')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') adminRenameCommit();
+});
 </script>
 
 <!-- ============================================================
@@ -3591,6 +4009,50 @@ function initEmptyAuditGrids() {
         <button class="btn btn-rjk btn-sm" onclick="runWithOdbc()">
           <i class="bi bi-play-fill me-1"></i>Run Report
         </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Admin: right-click context menu ─────────────────────────────── -->
+<div id="tree-ctx-menu" style="display:none;"></div>
+
+<!-- ── Admin: rename modal ─────────────────────────────────────────── -->
+<div class="modal fade" id="adminRenameModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title mb-0" id="adminRenameTitle">Rename</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body py-3">
+        <label class="form-label small fw-semibold mb-1" id="adminRenameLabel">New name</label>
+        <input type="text" class="form-control form-control-sm" id="adminRenameInput" autocomplete="off">
+        <div class="text-danger small mt-1" id="adminRenameError" style="display:none;"></div>
+      </div>
+      <div class="modal-footer py-2">
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm btn-rjk" id="adminRenameOk" onclick="adminRenameCommit()">Rename</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Admin: delete confirm modal ─────────────────────────────────── -->
+<div class="modal fade" id="adminDeleteModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title mb-0">Move to Trash</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body py-3">
+        <p class="mb-1 small">Move <strong id="adminDeleteName"></strong> to <code>_trash/</code>?</p>
+        <p class="mb-0 text-muted" style="font-size:.78rem;">It can be restored manually from the <code>reports/_trash/</code> folder.</p>
+      </div>
+      <div class="modal-footer py-2">
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm btn-danger" id="adminDeleteOk" onclick="adminDeleteCommit()">Move to Trash</button>
       </div>
     </div>
   </div>

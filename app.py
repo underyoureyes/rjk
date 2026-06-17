@@ -416,7 +416,9 @@ def list_persisted_aggs(limit: int = 100):
 @app.get("/api/aggs/persisted/{name}")
 def get_persisted_agg(name: str):
     aggs_dir = Path(config.audit_db_path).parent / "aggs"
-    path = aggs_dir / f"{name}.json"
+    path = (aggs_dir / f"{name}.json").resolve()
+    if not str(path).startswith(str(aggs_dir.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid dataset name")
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"Dataset '{name}' not found")
     try:
@@ -426,6 +428,21 @@ def get_persisted_agg(name: str):
     rows = data.get("rows", [])
     meta = {k: v for k, v in data.items() if k != "rows"}
     return {"meta": meta, "columns": infer_columns(rows)}
+
+
+@app.get("/api/aggs/persisted/{name}/rows")
+def get_persisted_agg_rows(name: str):
+    aggs_dir = Path(config.audit_db_path).parent / "aggs"
+    path = (aggs_dir / f"{name}.json").resolve()
+    if not str(path).startswith(str(aggs_dir.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid dataset name")
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Dataset '{name}' not found")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read dataset: {exc}")
+    return {"rows": data.get("rows", [])}
 
 
 @app.post("/api/reporting/chart")
@@ -640,6 +657,110 @@ async def admin_save_config(request: Request):
 @app.get("/api/admin/unix-groups")
 def admin_unix_groups():
     return {"groups": access_service.list_system_groups(), "unix_available": _UNIX_AVAILABLE}
+
+
+# ---------------------------------------------------------------------------
+# Admin — filesystem management (rename / trash)
+# ---------------------------------------------------------------------------
+
+def _require_admin(request: Request):
+    """Raise 403 if the caller is not an admin."""
+    username, _ = access_service.get_current_user_with_source(dict(request.headers))
+    user_groups  = access_service.get_unix_groups(username)
+    cfg          = access_service.load_config()
+    if not access_service.is_admin(username, user_groups=user_groups, cfg=cfg):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+
+def _safe_path(rel: str) -> Path:
+    """Resolve *rel* inside reports_root; raise 400 on traversal attempts."""
+    root  = config.reports_root.resolve()
+    target = (root / rel).resolve()
+    if not str(target).startswith(str(root)):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    return target
+
+
+def _trash_dest(src: Path) -> Path:
+    """Return the trash destination path, creating parent dirs as needed."""
+    import shutil as _sh
+    root  = config.reports_root.resolve()
+    rel   = src.relative_to(root)
+    dest  = root / "_trash" / rel
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    # Avoid overwriting existing trash entries
+    if dest.exists():
+        stem = dest.stem
+        suffix = dest.suffix if dest.is_file() else ""
+        dest = dest.with_name(stem + f"_{uuid.uuid4().hex[:6]}" + suffix)
+    return dest
+
+
+@app.patch("/api/admin/fs/rename")
+async def admin_rename(request: Request):
+    _require_admin(request)
+    body    = await request.json()
+    old_rel = body.get("path", "")
+    new_name = (body.get("new_name") or "").strip()
+    if not old_rel or not new_name:
+        raise HTTPException(status_code=400, detail="path and new_name are required")
+    if "/" in new_name or "\\" in new_name or new_name.startswith("."):
+        raise HTTPException(status_code=400, detail="new_name must be a plain name with no path separators")
+
+    src = _safe_path(old_rel)
+    if not src.exists():
+        raise HTTPException(status_code=404, detail="Source not found")
+
+    # For .sql reports keep the .sql extension
+    if src.is_file() and not new_name.endswith(".sql"):
+        new_name = new_name + ".sql"
+
+    dest = src.parent / new_name
+    if dest.exists():
+        raise HTTPException(status_code=409, detail=f"'{new_name}' already exists")
+
+    src.rename(dest)
+    return {"ok": True, "new_path": str(dest.relative_to(config.reports_root.resolve()))}
+
+
+@app.delete("/api/admin/fs/report")
+async def admin_trash_report(request: Request):
+    _require_admin(request)
+    body    = await request.json()
+    rel     = body.get("path", "")
+    if not rel:
+        raise HTTPException(status_code=400, detail="path is required")
+
+    import shutil as _sh
+    src  = _safe_path(rel)
+    if not src.is_file():
+        raise HTTPException(status_code=404, detail="Report not found")
+    if "_trash" in src.parts:
+        raise HTTPException(status_code=400, detail="Already in trash")
+
+    dest = _trash_dest(src)
+    _sh.move(str(src), str(dest))
+    return {"ok": True, "trashed_to": str(dest.relative_to(config.reports_root.resolve()))}
+
+
+@app.delete("/api/admin/fs/folder")
+async def admin_trash_folder(request: Request):
+    _require_admin(request)
+    body    = await request.json()
+    rel     = body.get("path", "")
+    if not rel:
+        raise HTTPException(status_code=400, detail="path is required")
+
+    import shutil as _sh
+    src  = _safe_path(rel)
+    if not src.is_dir():
+        raise HTTPException(status_code=404, detail="Folder not found")
+    if "_trash" in src.parts:
+        raise HTTPException(status_code=400, detail="Already in trash")
+
+    dest = _trash_dest(src)
+    _sh.move(str(src), str(dest))
+    return {"ok": True, "trashed_to": str(dest.relative_to(config.reports_root.resolve()))}
 
 
 try:

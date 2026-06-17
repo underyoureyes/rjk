@@ -138,7 +138,30 @@ class AuditService:
     def get_signoffs(self, limit: int = 200) -> list[dict]:
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT * FROM audit_signoffs ORDER BY signed_off_at DESC LIMIT ?",
+                """
+                SELECT
+                    s.id,
+                    s.run_id,
+                    s.report_path,
+                    s.signed_off_by,
+                    s.signed_off_at,
+                    s.notes,
+                    s.params,
+                    a.name        AS persist_name,
+                    a.format      AS persist_format,
+                    a.storage_path AS persist_location,
+                    a.size_bytes  AS persist_size_bytes,
+                    a.row_count   AS persist_row_count,
+                    a.source_row_count AS persist_source_rows,
+                    a.group_by    AS persist_group_by,
+                    a.value_cols  AS persist_value_cols,
+                    a.persisted_by,
+                    a.created_at  AS persisted_at
+                FROM audit_signoffs s
+                LEFT JOIN agg_store a ON a.run_id = s.run_id
+                ORDER BY s.signed_off_at DESC
+                LIMIT ?
+                """,
                 (limit,),
             ).fetchall()
             return [dict(r) for r in rows]

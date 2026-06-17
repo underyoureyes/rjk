@@ -7,6 +7,13 @@ Usage:
 Outputs (next to the project root, NOT inside it):
     ../rjk_dist/rjk_app.zip          — full app, ready to run
     ../rjk_dist/rjk_test_hello.zip   — single hello_world.py for scan testing
+
+What is included (all paths relative to project root):
+    Root files     app.py, launch.py, requirements.txt, .env.example, CLAUDE.md
+    src/           all .py files under src/
+    templates/     all files under templates/
+    reports/       all .sql files, excluding anything under reports/_trash/
+    data/mock/     all .json files (seed / mock data), if the directory exists
 """
 
 import zipfile
@@ -16,51 +23,65 @@ ROOT = Path(__file__).parent
 OUT  = ROOT.parent / "rjk_dist"
 OUT.mkdir(exist_ok=True)
 
-APP_FILES = [
+# ── Explicit single-file includes ────────────────────────────────────────────
+ROOT_FILES = [
     "app.py",
     "launch.py",
     "requirements.txt",
     ".env.example",
     "CLAUDE.md",
-    "reports/demo/frosty_treats/sales/daily_product_sales.sql",
-    "reports/demo/stock_market/prices/daily_close_prices.sql",
-    "data/mock/daily_close_prices.json",
-    "scripts/fetch_real_prices.py",
-    "src/RJK/__init__.py",
-    "src/RJK/audit/__init__.py",
-    "src/RJK/audit/audit_service.py",
-    "src/RJK/config/__init__.py",
-    "src/RJK/config/loader.py",
-    "src/RJK/discovery/__init__.py",
-    "src/RJK/discovery/report_discovery.py",
-    "src/RJK/parser/__init__.py",
-    "src/RJK/parser/sql_metadata_parser.py",
-    "src/RJK/runners/__init__.py",
-    "src/RJK/runners/base.py",
-    "src/RJK/runners/mock_runner.py",
-    "src/RJK/runners/odbc_runner.py",
-    "src/RJK/services/__init__.py",
-    "src/RJK/services/access_service.py",
-    "src/RJK/services/aggregation_service.py",
-    "src/RJK/services/chart_service.py",
-    "src/RJK/services/export_service.py",
-    "src/RJK/services/report_service.py",
-    "src/RJK/ui/__init__.py",
-    "src/RJK/ui/layout.py",
-    "templates/index.html",
+]
+
+# ── Directory glob rules: (glob_pattern, exclusion_predicate) ─────────────
+# Each entry yields Path objects relative to ROOT; exclude() returns True to skip.
+GLOB_RULES = [
+    # All Python source files
+    ("src/**/*.py",         lambda p: "__pycache__" in p.parts),
+    # HTML templates
+    ("templates/**/*",      lambda p: p.is_dir()),
+    # SQL reports — skip the _trash recycle bin
+    ("reports/**/*.sql",    lambda p: "_trash" in p.parts),
+    # Mock / seed data JSON
+    ("data/mock/**/*.json", lambda _: False),
 ]
 
 
+def _collect_files() -> list[Path]:
+    """Return all files that should go into the app zip, as paths relative to ROOT."""
+    seen: set[Path] = set()
+    result: list[Path] = []
+
+    def _add(rel: Path):
+        if rel not in seen:
+            seen.add(rel)
+            result.append(rel)
+
+    for name in ROOT_FILES:
+        _add(Path(name))
+
+    for pattern, exclude in GLOB_RULES:
+        for abs_path in sorted(ROOT.glob(pattern)):
+            rel = abs_path.relative_to(ROOT)
+            if not exclude(abs_path):
+                _add(rel)
+
+    return result
+
+
 def build_app_zip():
-    path = OUT / "rjk_app.zip"
+    files = _collect_files()
+    path  = OUT / "rjk_app.zip"
+    missing = 0
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in APP_FILES:
-            src = ROOT / f
+        for rel in files:
+            src = ROOT / rel
             if not src.exists():
-                print(f"  WARNING: missing {f}")
+                print(f"  WARNING: missing {rel}")
+                missing += 1
                 continue
-            z.write(src, f"rjk/{f}")
-    print(f"rjk_app.zip        {path.stat().st_size:>10,} bytes   {path}")
+            z.write(src, f"rjk/{rel.as_posix()}")
+    included = len(files) - missing
+    print(f"rjk_app.zip        {path.stat().st_size:>10,} bytes   ({included} files)   {path}")
 
 
 def build_hello_zip():
@@ -72,6 +93,13 @@ def build_hello_zip():
 
 if __name__ == "__main__":
     print(f"Building packages -> {OUT}\n")
+    files = _collect_files()
+    print(f"Collecting {len(files)} files:")
+    for f in files:
+        src = ROOT / f
+        status = "OK" if src.exists() else "MISSING"
+        print(f"  [{status}] {f.as_posix()}")
+    print()
     build_app_zip()
     build_hello_zip()
     print("\nDone.")
